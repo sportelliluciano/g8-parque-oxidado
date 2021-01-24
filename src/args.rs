@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Args {
-    pub ayuda: bool,
+    pub debug: bool,
     pub capacidad_parque: u32,
     pub presupuesto_personas: Vec<u32>,
     pub costo_juegos: Vec<u32>
@@ -31,6 +31,9 @@ pub fn parse_args() -> ParseArgsResult {
         let val = arg.split("=").collect::<Vec<&str>>();
         if val[0] == "-h" || val[0] == "--help" {
             return ParseArgsResult::MostrarAyuda;
+        } else if val[0] == "-d" || val[0] == "--debug" {
+            args.debug = true;
+            continue;
         }
 
         if val.len() != 2 {
@@ -69,13 +72,14 @@ pub fn mostrar_ayuda() {
     println!();
     println!("\t --capacidad=N: Cantidad de personas que puede haber simultáneamente");
     println!("\t dentro del parque en un momento dado.");
+    println!("\t -d|--debug: Habilitar registro a un archivo.");
     println!("\t -h|--help: Muestra esta ayuda.");
 }
 
 impl Args {
     pub fn default() -> Self {
         Self {
-            ayuda: false,
+            debug: false,
             capacidad_parque: 10,
             presupuesto_personas: vec![40, 40, 40, 40, 40],
             costo_juegos: vec![10, 10, 10, 10, 10]
@@ -84,9 +88,7 @@ impl Args {
 
     pub fn as_str(&self) -> String {
         let exe = &std::env::args().collect::<Vec<String>>()[0];
-        if self.ayuda {
-            return format!("{} -h", exe);
-        }
+        let debug = if self.debug { "-d" } else { "" };
         let personas = self.presupuesto_personas
             .iter()
             .map(|e| e.to_string())
@@ -99,8 +101,8 @@ impl Args {
             .join(",");
 
 
-        return format!("{} --capacidad={} --personas={} --juegos={}",
-            exe, self.capacidad_parque, personas, juegos);
+        return format!("{} --capacidad={} --personas={} --juegos={} {}",
+            exe, self.capacidad_parque, personas, juegos, debug);
     }
 
     pub fn parsers() -> HashMap<&'static str, Parser> {

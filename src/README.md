@@ -4,7 +4,7 @@
 ## Uso:
 
 ```bash
-$ ./parque-oxidado [--personas=<PERSONAS>] [--juegos=<JUEGOS>] [--capacidad=<N>] [-h|--help]
+$ ./parque-oxidado [--personas=<PERSONAS>] [--juegos=<JUEGOS>] [--capacidad=<N>] [-h|--help] [-d|--debug]
 ```
 
 ### Configurar la cantidad de personas
@@ -48,3 +48,6 @@ Ejemplos:
 ### Configurar la capacidad del parque
 Para definir la cantidad de personas que pueden estar simultáneamente dentro del parque en un momento específico se debe usar el parámetro `--capacidad`. Si no se
 especifica el valor por defecto será de 10 personas. El valor de este parámetro deberá ser un número natural.
+
+### Modo debug
+El simulador mostrará por defecto el estado de la simulación por la salida estándar. Opcionalmente se puede activar la opción `--debug` para guardar este registro a un archivo.
