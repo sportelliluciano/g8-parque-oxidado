@@ -1,6 +1,8 @@
 use std::{
     sync::atomic::AtomicBool,
     sync::atomic::Ordering,
+    sync::Condvar,
+    sync::Mutex,
     thread::sleep,
     time::Duration
 };
@@ -10,14 +12,17 @@ use std_semaphore::Semaphore;
 use crate::semaforo::Semaforo;
 
 pub struct Juego {
-    precio: u32,
+    pub precio: u32,
     tiempo: u32,
     capacidad: usize,
     cerrar: AtomicBool,
-    id: usize,
+    pub id: usize,
 
     sem_entrada: Semaforo,
-    sem_juego: Semaphore
+    sem_juego: Semaphore,
+
+    salida: Mutex<bool>,
+    juego_terminado: Condvar,
 }
 
 impl Juego {
@@ -25,12 +30,15 @@ impl Juego {
         Self {
             precio,
             tiempo: 0,
-            capacidad: 10000000,
+            capacidad: 2,
             cerrar: AtomicBool::new(false),
             id,
             
-            sem_entrada: Semaforo::new(10000000 as isize),
+            sem_entrada: Semaforo::new(2 as isize),
             sem_juego: Semaphore::new(0),
+
+            juego_terminado: Condvar::new(),
+            salida: Mutex::new(true),
         }
     }
 
@@ -39,38 +47,32 @@ impl Juego {
             println!("[JUEGO {}] Esperando a la gente", self.id);
             // *** Esperar a que entre la gente ***
             //  >> gente_adentro.unlock(); atomico con el wait siguiente, las personas pueden empezar a entrar
-            let gente_adentro = {
-                let (espacio_libre, timeout) = 
-                    self.sem_entrada.wait_zero_timeout(Duration::from_secs(5));
-                //  >> gente_adentro.lock(); // los que hacen entrar se quedan lockeados atomicamente con el wait, no pueden entrar mas
-                if timeout.timed_out() {
-                    // Timed out -> ver si hay gente y correr el juego.
-                    println!("[JUEGO {}] (TIMEOUT) esperando a la gente", self.id);
-                    if *espacio_libre == self.capacidad as isize { 
-                        println!("[JUEGO {}] (TIMEOUT) no hay gente, loopeando", self.id);
-                        continue
-                    }
-                } else {
-                    if *espacio_libre != 0 { // desbloqueo espurio
-                        println!("[JUEGO {}] desbloqueo espurio esperando gente", self.id);
-                        continue
-                    }
+            let (mut espacio_libre, timeout) =
+                self.sem_entrada.wait_zero_timeout(Duration::from_secs(5));
+            //  >> gente_adentro.lock(); // los que hacen entrar se quedan lockeados atomicamente con el wait, no pueden entrar mas
+            if timeout.timed_out() {
+                // Timed out -> ver si hay gente y correr el juego.
+                println!("[JUEGO {}] (TIMEOUT) esperando a la gente", self.id);
+                if *espacio_libre == self.capacidad as isize {
+                    println!("[JUEGO {}] (TIMEOUT) no hay gente, loopeando", self.id);
+                    continue
                 }
-
-                self.capacidad as isize - *espacio_libre
-            }; // espacio_libre.unlock
+            } else if *espacio_libre != 0 { // desbloqueo espurio
+                println!("[JUEGO {}] desbloqueo espurio esperando gente", self.id);
+                continue
+            }
+            let gente_adentro = self.capacidad as isize - *espacio_libre;
 
             println!("[JUEGO {}] Arrancando el juego con {}/{} personas", self.id, gente_adentro, self.capacidad);
             // *** Arrancar el juego ***
             sleep(Duration::from_millis(self.tiempo as u64));
             println!("[JUEGO {}] Terminado, esperando que salga la gente", self.id);
+            // self.juego_terminado.notify_all();
             for _persona in 0..gente_adentro {
                 self.sem_juego.release();
             }
             println!("[JUEGO {}] Salió toda la gente, re-arrancando", self.id);
-            for _persona in 0..gente_adentro {
-                self.sem_entrada.release();
-            }
+            *espacio_libre = self.capacidad as isize;
         }
 
         println!("[JUEGO {}] Cerrado", self.id);
@@ -81,6 +83,8 @@ impl Juego {
     }
 
     pub fn jugar(&self) {
+        // TODO que este metodo no exista mas, que sea implicito con el entrar
+        // self.juego_terminado.wait(self.salida.lock().expect("poisoned")).expect("TODO no se");
         self.sem_juego.acquire();
     }
 

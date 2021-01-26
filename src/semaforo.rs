@@ -19,16 +19,28 @@ impl Semaforo {
     }
 
     pub fn acquire(&self) {
-        self.sem.acquire();
+        // self.sem.acquire();
         let mut cantidad = self.cantidad.lock().expect("poison");
-        *cantidad -= 1;
         if *cantidad == 0 {
+            // Si pude tomar el lock aunque la condicion ya se cumplió
+            // Esto es posible ya que hay un tiempo entre el notify_one y que se despierte el thread juego y por lo tanto se lockee la cantidad
+            // En este caso, desalojar este thread para permitir que el otro se despierte e intentar nuevamente entra al juego
+            drop(cantidad);
+            println!("NOTIFICO CANTIDAD 0 cuando ya era 0");
             self.cv_cero.notify_one();
+            std::thread::yield_now();
+            self.acquire();
+        } else {
+            *cantidad -= 1;
+            if *cantidad == 0 {
+                println!("NOTIFICO CANTIDAD 0");
+                self.cv_cero.notify_one();
+            }
         }
     }
 
     pub fn release(&self) {
-        self.sem.release();
+        // self.sem.release();
         let mut cantidad = self.cantidad.lock().expect("poison");
         *cantidad += 1;
     }
