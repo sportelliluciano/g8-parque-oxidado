@@ -99,7 +99,6 @@ impl Juego {
     }
 
     pub fn entrar(&self, persona: &mut Persona) {
-        self.cobrar_entrada(persona);
         let mut espacio_libre = self.cant_espacio_libre.lock().expect("poison");
         if *espacio_libre == 0 {
             // Si pude tomar el lock aunque la condicion ya se cumplió
@@ -125,7 +124,8 @@ impl Juego {
         self.parque.guardar_dinero(self.precio);
     }
 
-    fn jugar(&self, persona: &Persona) {
+    fn jugar(&self, persona: &mut Persona) {
+        self.cobrar_entrada(persona);
         println!("[Persona {}] Logré entrar al juego {}, empenzado a jugar", persona.id, self.id);
         self.salida_barrier.wait();
         self.salir();
