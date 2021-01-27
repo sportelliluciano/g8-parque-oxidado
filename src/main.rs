@@ -2,6 +2,7 @@ extern crate rand;
 extern crate std_semaphore;
 
 mod args;
+mod logger;
 mod parque;
 mod persona;
 mod juego;
@@ -14,6 +15,7 @@ use std::{
 };
 
 use args::{parse_args, mostrar_ayuda, ParseArgsResult};
+use logger::Logger;
 use parque::Parque;
 use juego::Juego;
 use persona::iniciar_hilos_personas;
@@ -39,7 +41,14 @@ fn real_main() -> Result<(), String> {
         }
     };
 
-    println!("[ADMIN] Iniciando simulación con: {}", args.as_str());
+    let logger = if args.debug {
+        Logger::to_file("debug.txt").expect("No se pudo crear el archivo de log.")
+    } else {
+        Logger::to_stdout()
+    };
+
+    let log = logger.get_logger("ADMIN");
+    log.write(&format!("Iniciando simulación con: {}", args.as_str()));
     let parque = Arc::new(Parque::new(
         args.capacidad_parque as usize,
         args.costo_juegos
@@ -52,18 +61,23 @@ fn real_main() -> Result<(), String> {
     
     while parque.obtener_cantidad_gente_que_salio_del_parque() < args.presupuesto_personas.len() {
         sleep(Duration::from_millis(5000));
-        println!("[ADMIN] Caja: $ {}, desperfectos: {}, gente adentro: {}", 
+        log.write(&format!("Caja: $ {}, desperfectos: {}, gente adentro: {}", 
                  parque.obtener_caja(), 
                  parque.obtener_desperfectos(),
-                 parque.obtener_genete_adentro());
+                 parque.obtener_genete_adentro()));
     }
     
-    println!("[ADMIN] Salieron todos, cerrando el parque");
+    log.write("Salieron todos, cerrando el parque");
     parque.cerrar();
-    println!("[ADMIN] Terminado");
+    log.write("Terminado");
+
+    log.write(&format!("Caja final: $ {}, desperfectos: {}", 
+                 parque.obtener_caja(), 
+                 parque.obtener_desperfectos()));
 
     for persona in personas {
         persona.join().expect("no se pudo joinear hilo de persona");
     }
+    logger.close();
     Ok(())
 }
