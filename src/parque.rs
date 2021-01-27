@@ -65,7 +65,7 @@ impl Parque {
     pub fn elegir_juego_random(&self, presupuesto_maximo: u32) -> Result<Arc<Juego>, &'static str> {
         let juegos_posibles = self.obtener_juegos_posibles(presupuesto_maximo);
         if juegos_posibles.len() == 0 {
-            Err("Sos pobre pa, tomatelas")
+            Err("No alcanza el dinero")
         } else {   
             let mut rng = self.rng.lock().expect("posioned rng");
             Ok(juegos_posibles[rng.gen_range(0..juegos_posibles.len())].clone())
