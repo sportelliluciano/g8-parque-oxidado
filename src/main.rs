@@ -9,8 +9,10 @@ mod semaforo;
 
 use std::{
     sync::Arc,
+    sync::Mutex,
     thread::sleep,
-    time::Duration
+    time::Duration,
+    rc::Rc,
 };
 
 use args::{parse_args, mostrar_ayuda, ParseArgsResult};
@@ -41,14 +43,18 @@ fn real_main() -> Result<(), String> {
 
     println!("[ADMIN] Iniciando simulación con: {}", args.as_str());
     let parque = Arc::new(Parque::new(
-        args.capacidad_parque as usize,
-        args.costo_juegos
-            .iter()
-            .enumerate()
-            .map(|(id, c)| Juego::new(id, *c))
-            .collect::<Vec<Juego>>()
+        args.capacidad_parque as usize
     ));
-    let personas = iniciar_hilos_personas(parque.clone(), &args.presupuesto_personas);
+    let juegos = args.costo_juegos
+        .iter()
+        .enumerate()
+        .map(|(id, costo)| Juego::new(id, Arc::clone(&parque), *costo))
+        .collect::<Vec<Juego>>();
+    
+    // iniciar thread de juegos
+    parque.registrar_juegos(juegos);
+
+    let personas_threads = iniciar_hilos_personas(Arc::clone(&parque), &args.presupuesto_personas);
     
     while parque.obtener_cantidad_gente_que_salio_del_parque() < args.presupuesto_personas.len() {
         sleep(Duration::from_millis(5000));
@@ -62,7 +68,7 @@ fn real_main() -> Result<(), String> {
     parque.cerrar();
     println!("[ADMIN] Terminado");
 
-    for persona in personas {
+    for persona in personas_threads {
         persona.join().expect("no se pudo joinear hilo de persona");
     }
     Ok(())
