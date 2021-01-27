@@ -6,51 +6,55 @@ use std::{
     },
     thread::JoinHandle
 };
+use rand::{Rng, SeedableRng, prelude::StdRng};
 use std_semaphore::Semaphore;
 
 use crate::juego::Juego;
 
 pub struct Parque {
-    juegos: Vec<Arc<Juego>>,
+    juegos: Mutex<Vec<Arc<Juego>>>,
     // Este mutex no debería ser necesario, pero si no lo pongo el compilador shora
     juegos_threads: Mutex<Vec<JoinHandle<()>>>,
     caja: Arc<AtomicU32>,
     capacidad: Semaphore,
     cantidad_visitantes: AtomicUsize,
     gente_adentro: AtomicU32,
+    rng: Mutex<StdRng>
 }
 
 impl Parque {
-    pub fn new(capacidad: usize, juegos: Vec<Juego>) -> Self {
-        let mut arc_juegos = vec![];
-        let mut juegos_threads = vec![];
-
-        for juego in juegos {
-            let juego_ref = Arc::new(juego);
-            arc_juegos.push(juego_ref.clone());
-            juegos_threads.push(std::thread::spawn(move || {
-                juego_ref.thread_main();
-            }))
-        }
-
+    pub fn new(capacidad: usize, semilla: u64) -> Self {
         Self {
-            juegos: arc_juegos, 
-            juegos_threads: Mutex::new(juegos_threads),
             caja: Arc::new(AtomicU32::new(0)), 
             capacidad: Semaphore::new(capacidad as isize),
             cantidad_visitantes: AtomicUsize::new(0),
-            gente_adentro: AtomicU32::new(0)
+            gente_adentro: AtomicU32::new(0),
+            juegos: Mutex::new(vec![]),
+            juegos_threads: Mutex::new(vec![]),
+            rng: Mutex::new(StdRng::seed_from_u64(semilla))
         }
     }
 
-    pub fn pagar(&self, monto: u32) {
+    pub fn registrar_juegos(&self, juegos: Vec<Juego>) {
+        let mut juegos_vec = self.juegos.lock().expect("poisoned");
+        let mut juegos_threads_vec = self.juegos_threads.lock().expect("poisoned");
+        for juego in juegos {
+            let juego_ref = Arc::new(juego);
+            juegos_vec.push(juego_ref.clone());
+            juegos_threads_vec.push(std::thread::spawn(move || {
+                juego_ref.thread_main();
+            }));
+        }
+    }
+
+    pub fn guardar_dinero(&self, monto: u32) {
         self.caja.fetch_add(monto, Ordering::SeqCst);
     }
 
     fn obtener_juegos_posibles(&self, presupuesto_maximo: u32) -> Vec<Arc<Juego>> {
         let mut resultado = vec![];
-        for juego in self.juegos.iter() {
-            if presupuesto_maximo >= juego.precio() {
+        for juego in self.juegos.lock().expect("poisoned").iter() {
+            if presupuesto_maximo >= juego.precio {
                 resultado.push(juego.clone());
             }
         }
@@ -61,10 +65,9 @@ impl Parque {
     pub fn elegir_juego_random(&self, presupuesto_maximo: u32) -> Result<Arc<Juego>, &'static str> {
         let juegos_posibles = self.obtener_juegos_posibles(presupuesto_maximo);
         if juegos_posibles.len() == 0 {
-            Err("Sos pobre pa, tomatelas")
+            Err("No alcanza el dinero")
         } else {   
-            use rand::Rng;
-            let mut rng = rand::thread_rng();
+            let mut rng = self.rng.lock().expect("posioned rng");
             Ok(juegos_posibles[rng.gen_range(0..juegos_posibles.len())].clone())
         }
     }
@@ -98,18 +101,13 @@ impl Parque {
 
     pub fn cerrar(&self) {
         println!("[PARQUE] Cerrando juegos");
-        for juego in &self.juegos {
+        for juego in self.juegos.lock().expect("poisoned").iter() {
             juego.cerrar();
         }
 
         println!("[PARQUE] Esperando a que los juegos terminen");
-        let mut threads = 
-            self.juegos_threads.lock().expect("mutex poisoned");
-        while threads.len() > 0 {
-            match threads.pop() {
-                Some(handle) => handle.join().expect("cannot join thread"),
-                None => break
-            }
+        for juego_thread in self.juegos_threads.lock().expect("poisoned").drain(..) {
+            juego_thread.join().expect("cannot join thread");
         }
         println!("[PARQUE] Parque cerrado");
     }
@@ -120,7 +118,7 @@ impl Parque {
 
     pub fn obtener_desperfectos(&self) -> u32 {
         let mut cantidad = 0;
-        for juego in &self.juegos {
+        for juego in &(*self.juegos.lock().expect("poisoned")) {
             cantidad += juego.obtener_desperfectos();
         }
 

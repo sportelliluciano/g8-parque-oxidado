@@ -1,87 +1,133 @@
 use std::{
     sync::atomic::AtomicBool,
     sync::atomic::Ordering,
-    thread::sleep,
+    sync::Condvar,
+    sync::Mutex,
+    sync::Barrier,
+    sync::Arc,
     time::Duration
 };
+use std::thread;
 
-use std_semaphore::Semaphore;
-
-use crate::semaforo::Semaforo;
+use crate::{parque::Parque, persona::Persona};
 
 pub struct Juego {
-    precio: u32,
+    pub id: usize,
+    parque: Arc<Parque>,
+    pub precio: u32,
     tiempo: u32,
     capacidad: usize,
-    cerrar: AtomicBool,
-    id: usize,
 
-    sem_entrada: Semaforo,
-    sem_juego: Semaphore
+    cant_espacio_libre: Mutex<usize>,
+    cv_cero_espacio_libre: Condvar,
+
+    mutex_hay_espacio: Mutex<bool>,
+    salida_barrier: Arc<Barrier>,
+    salida_mutex: Mutex<bool>,
+
+    cerrar: AtomicBool,
 }
 
 impl Juego {
-    pub fn new(id: usize, precio: u32) -> Self {
+    pub fn new(id: usize, parque: Arc<Parque>, precio: u32) -> Self {
+        let capacidad = 2; // TODO que sea parametro
         Self {
-            precio,
-            tiempo: 0,
-            capacidad: 10000000,
-            cerrar: AtomicBool::new(false),
             id,
-            
-            sem_entrada: Semaforo::new(10000000 as isize),
-            sem_juego: Semaphore::new(0),
+            parque,
+            precio,
+            tiempo: 25, // TODO que sea parametro
+            capacidad,
+
+            cant_espacio_libre: Mutex::new(capacidad),
+            cv_cero_espacio_libre: Condvar::new(),
+
+            mutex_hay_espacio: Mutex::new(true),
+            salida_barrier: Arc::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
+            salida_mutex: Mutex::new(true),
+
+            cerrar: AtomicBool::new(false),
         }
     }
 
     pub fn thread_main(&self) {
         while self.cerrar.load(Ordering::SeqCst) != true {
-            println!("[JUEGO {}] Esperando a la gente", self.id);
+
             // *** Esperar a que entre la gente ***
-            //  >> gente_adentro.unlock(); atomico con el wait siguiente, las personas pueden empezar a entrar
-            let gente_adentro = {
-                let (espacio_libre, timeout) = 
-                    self.sem_entrada.wait_zero_timeout(Duration::from_secs(5));
-                //  >> gente_adentro.lock(); // los que hacen entrar se quedan lockeados atomicamente con el wait, no pueden entrar mas
-                if timeout.timed_out() {
-                    // Timed out -> ver si hay gente y correr el juego.
-                    println!("[JUEGO {}] (TIMEOUT) esperando a la gente", self.id);
-                    if *espacio_libre == self.capacidad as isize { 
-                        println!("[JUEGO {}] (TIMEOUT) no hay gente, loopeando", self.id);
-                        continue
-                    }
-                } else {
-                    if *espacio_libre != 0 { // desbloqueo espurio
-                        println!("[JUEGO {}] desbloqueo espurio esperando gente", self.id);
-                        continue
-                    }
+            println!("[JUEGO {}] Esperando a la gente", self.id);
+            let (mut espacio_libre, timeout) =
+                self.cv_cero_espacio_libre.wait_timeout(
+                    self.cant_espacio_libre.lock().expect("poisoned"),
+                    Duration::from_secs(5)
+                ).expect("poisoned");
+
+            if timeout.timed_out() {
+                // Timed out -> ver si hay gente y correr el juego.
+                println!("[JUEGO {}] (TIMEOUT) esperando a la gente", self.id);
+                if *espacio_libre == self.capacidad {
+                    println!("[JUEGO {}] (TIMEOUT) no hay gente, loopeando", self.id);
+                    continue
                 }
+            } else if *espacio_libre != 0 { // desbloqueo espurio
+                println!("[JUEGO {}] desbloqueo espurio esperando gente", self.id);
+                continue
+            }
 
-                self.capacidad as isize - *espacio_libre
-            }; // espacio_libre.unlock
-
+            let gente_adentro = self.capacidad - *espacio_libre;
             println!("[JUEGO {}] Arrancando el juego con {}/{} personas", self.id, gente_adentro, self.capacidad);
+
             // *** Arrancar el juego ***
-            sleep(Duration::from_millis(self.tiempo as u64));
+            thread::sleep(Duration::from_millis(self.tiempo as u64));
+
             println!("[JUEGO {}] Terminado, esperando que salga la gente", self.id);
-            for _persona in 0..gente_adentro {
-                self.sem_juego.release();
+            let mut handles = vec![];
+            for _persona in 0..(*espacio_libre + 1) {
+                let salida_barrier_c = Arc::clone(&self.salida_barrier);
+                let handle = thread::spawn(move || {
+                    salida_barrier_c.wait();
+                });
+                handles.push(handle);
             }
+            for handle in handles {
+                handle.join().unwrap();
+            }
+
             println!("[JUEGO {}] Salió toda la gente, re-arrancando", self.id);
-            for _persona in 0..gente_adentro {
-                self.sem_entrada.release();
-            }
+            *espacio_libre = self.capacidad;
         }
 
         println!("[JUEGO {}] Cerrado", self.id);
     }
 
-    pub fn entrar(&self) {
-        self.sem_entrada.acquire();
+    pub fn entrar(&self, persona: &mut Persona) {
+        let hay_espacio = self.mutex_hay_espacio.lock().expect("poisoned");
+        let mut espacio_libre = self.cant_espacio_libre.lock().expect("poison");
+        *espacio_libre -= 1;
+        if *espacio_libre == 0 {
+            self.cv_cero_espacio_libre.notify_one();
+        } else {
+            // Si todavia queda espacio: desbloquear el mutex hay_espacio.
+            // Sino se desbloquea después de que juegue y salga la ultima persona que entró.
+            drop(hay_espacio);
+        }
+        drop(espacio_libre);
+        self.jugar(persona);
     }
 
-    pub fn jugar(&self) {
-        self.sem_juego.acquire();
+    fn cobrar_entrada(&self, persona: &mut Persona) {
+        persona.pagar_juego(self);
+        self.parque.guardar_dinero(self.precio);
+    }
+
+    fn jugar(&self, persona: &mut Persona) {
+        self.cobrar_entrada(persona);
+        println!("[Persona {}] Logré entrar al juego {}, empenzado a jugar", persona.id, self.id);
+        self.salida_barrier.wait();
+        self.salir();
+    }
+
+    fn salir(&self) {
+        // lockear el mutex de la salida para salir de a uno
+        let _ = self.salida_mutex.lock().expect("poison");
     }
 
     /// Cantidad de desperfectos que ocurrieron (el parque lo usa)
@@ -92,15 +138,5 @@ impl Juego {
     /// EL PARQUE LE INDICA AL JUEGO QUE DEBE CERRARSE CUANDO SE FUE TODA LA GENTE
     pub fn cerrar(&self) {
         self.cerrar.store(true, Ordering::SeqCst);
-    }
-
-    /// ID DE JUEGO PARA LOS LOGS
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    /// PRECIO DEL JUEGO
-    pub fn precio(&self) -> u32 {
-        self.precio
     }
 }

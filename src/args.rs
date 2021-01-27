@@ -6,7 +6,8 @@ pub struct Args {
     pub debug: bool,
     pub capacidad_parque: u32,
     pub presupuesto_personas: Vec<u32>,
-    pub costo_juegos: Vec<u32>
+    pub costo_juegos: Vec<u32>,
+    pub semilla: u32,
 }
 
 pub enum ParseArgsResult {
@@ -74,15 +75,18 @@ pub fn mostrar_ayuda() {
     println!("\t dentro del parque en un momento dado.");
     println!("\t -d|--debug: Habilitar registro a un archivo.");
     println!("\t -h|--help: Muestra esta ayuda.");
+    println!("\t --semilla=N: Semilla aleatoria a utilizar.");
 }
 
 impl Args {
     pub fn default() -> Self {
+        let mut rng = rand::thread_rng();
         Self {
             debug: false,
             capacidad_parque: 10,
             presupuesto_personas: vec![40, 40, 40, 40, 40],
-            costo_juegos: vec![10, 10, 10, 10, 10]
+            costo_juegos: vec![10, 10, 10, 10, 10],
+            semilla: rng.gen()
         }
     }
 
@@ -101,8 +105,8 @@ impl Args {
             .join(",");
 
 
-        return format!("{} --capacidad={} --personas={} --juegos={} {}",
-            exe, self.capacidad_parque, personas, juegos, debug);
+        return format!("{} --capacidad={} --personas={} --juegos={} --semilla={} {}",
+            exe, self.capacidad_parque, personas, juegos, self.semilla, debug);
     }
 
     pub fn parsers() -> HashMap<&'static str, Parser> {
@@ -110,6 +114,7 @@ impl Args {
         result.insert("--personas", Self::parse_personas);
         result.insert("--juegos", Self::parse_juegos);
         result.insert("--capacidad", Self::parse_capacidad);
+        result.insert("--semilla", Self::parse_semilla);
         result
     }
 
@@ -125,6 +130,11 @@ impl Args {
 
     fn parse_capacidad(args: &mut Args, data: &str) -> Result<(), String> {
         args.capacidad_parque = Self::parse_u32(data)?;
+        Ok(())
+    }
+
+    fn parse_semilla(args: &mut Args, data: &str) -> Result<(), String> {
+        args.semilla = Self::parse_u32(data)?;
         Ok(())
     }
 

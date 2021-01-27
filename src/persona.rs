@@ -4,42 +4,57 @@ use std::{
 };
 
 use crate::parque::Parque;
+use crate::juego::Juego;
 
 pub fn iniciar_hilos_personas(parque: Arc<Parque>, presupuestos: &Vec<u32>) -> Vec<JoinHandle<()>> {
     let mut handles = vec![];
     for (id, presupuesto_persona) in presupuestos.iter().enumerate() {
         let parque_child = parque.clone();
         let presupuesto_persona = *presupuesto_persona;
+        let mut persona = Persona::new(id, presupuesto_persona);
         handles.push(std::thread::spawn(move || {
-            persona_thread_main(parque_child, presupuesto_persona, id);
+            persona.visitar_parque(parque_child);
         }));
     }
     handles
 }
 
-fn persona_thread_main(parque: Arc<Parque>, presupuesto_inicial: u32, id: usize) {
-    let mut presu = presupuesto_inicial;
-    println!("[Persona {}] Esperando para entrar al parque", id);
-    parque.ingresar_persona();
-    println!("[Persona {}] Entre al parque con {} pesos", id, presu);
-    while presu > 0 {
-        let juego = match parque.elegir_juego_random(presu) {
-            Ok(juego) => juego,
-            Err(_) => break
-        };
-        
-        println!("[Persona {}] Entrando al juego {}.", id, juego.id());
-        juego.entrar(); // Bajar el sem
-        println!("[Persona {}] Tengo $ {} y voy a pagar $ {}", id, presu, juego.precio());
-        presu -= juego.precio();  // ????
-        parque.pagar(juego.precio());
-        println!("[Persona {}] Pagué el juego {} (me quedan $ {}).", id, juego.id(), presu);
-        juego.jugar();  // Esperar la barrera
-        println!("[Persona {}] Jugué al juego {} y salí.", id, juego.id());
-        //juego.salir();  // Subir el sem
-        //println!("[Persona {}] Salí del juego {}.", id, juego.id());
+pub struct Persona {
+    pub id: usize,
+    presupuesto: u32,
+}
+
+impl Persona {
+    pub fn new(id: usize, presupuesto: u32) -> Self {
+        Self {
+            id,
+            presupuesto,
+        }
     }
-    println!("[Persona {}] No me alcanza para ningun juego (me quedaron $ {})", id, presu);
-    parque.salir_persona();
-    println!("[Persona {}] Me fui del parque", id);
+
+    pub fn pagar_juego(&mut self, juego: &Juego) -> u32 {
+        let presupuesto_restante = self.presupuesto - juego.precio;
+        println!("[Persona {}] Pagando juego {}. Tenía $ {} y pagué $ {}, me quedan {}", self.id, juego.id, self.presupuesto, juego.precio, presupuesto_restante);
+        self.presupuesto = presupuesto_restante;
+        self.presupuesto
+    }
+
+    pub fn visitar_parque(&mut self, parque: Arc<Parque>) {
+        println!("[Persona {}] Esperando para entrar al parque", self.id);
+        parque.ingresar_persona();
+        println!("[Persona {}] Entre al parque con {} pesos", self.id, self.presupuesto);
+        while self.presupuesto > 0 {
+            let juego = match parque.elegir_juego_random(self.presupuesto) {
+                Ok(juego) => juego,
+                Err(_) => break
+            };
+
+            println!("[Persona {}] Entrando a la fila del juego {}.", self.id, juego.id);
+            juego.entrar(self);
+            println!("[Persona {}] Jugué al juego {} y salí.", self.id, juego.id);
+        }
+        println!("[Persona {}] No me alcanza para ningun juego (me quedaron $ {})", self.id, self.presupuesto);
+        parque.salir_persona();
+        println!("[Persona {}] Me fui del parque", self.id);
+    }
 }
