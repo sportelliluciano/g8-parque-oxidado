@@ -4,7 +4,7 @@
 ## Uso:
 
 ```bash
-$ ./parque-oxidado [--personas=<PERSONAS>] [--juegos=<JUEGOS>] [--capacidad=<N>] [-h|--help] [-d|--debug]
+$ ./parque-oxidado [--personas=<PERSONAS>] [--juegos=<JUEGOS>] [--capacidad=<N>] [-h|--help] [--semilla=<N>] [-d|--debug]
 ```
 
 ### Configurar la cantidad de personas
@@ -51,3 +51,6 @@ especifica el valor por defecto será de 10 personas. El valor de este parámetr
 
 ### Modo debug
 El simulador mostrará por defecto el estado de la simulación por la salida estándar. Opcionalmente se puede activar la opción `--debug` para guardar este registro a un archivo.
+
+### Semilla aleatoria
+Para definir una semilla aleatoria específica se puede utilizar el parámetro `--semilla=<N>`.

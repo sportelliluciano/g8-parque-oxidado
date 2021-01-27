@@ -99,7 +99,7 @@ impl Juego {
     }
 
     pub fn entrar(&self, persona: &mut Persona) {
-        let hay_espacio = self.mutex_hay_espacio.lock();
+        let hay_espacio = self.mutex_hay_espacio.lock().expect("poisoned");
         let mut espacio_libre = self.cant_espacio_libre.lock().expect("poison");
         *espacio_libre -= 1;
         if *espacio_libre == 0 {

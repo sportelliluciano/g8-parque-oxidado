@@ -23,7 +23,7 @@ pub struct Parque {
 }
 
 impl Parque {
-    pub fn new(capacidad: usize) -> Self {
+    pub fn new(capacidad: usize, semilla: u64) -> Self {
         Self {
             caja: Arc::new(AtomicU32::new(0)), 
             capacidad: Semaphore::new(capacidad as isize),
@@ -31,7 +31,7 @@ impl Parque {
             gente_adentro: AtomicU32::new(0),
             juegos: Mutex::new(vec![]),
             juegos_threads: Mutex::new(vec![]),
-            rng: Mutex::new(StdRng::seed_from_u64(42))
+            rng: Mutex::new(StdRng::seed_from_u64(semilla))
         }
     }
 
@@ -101,7 +101,7 @@ impl Parque {
 
     pub fn cerrar(&self) {
         println!("[PARQUE] Cerrando juegos");
-        for juego in &(*self.juegos.lock().expect("poisoned")) {
+        for juego in self.juegos.lock().expect("poisoned").iter() {
             juego.cerrar();
         }
 

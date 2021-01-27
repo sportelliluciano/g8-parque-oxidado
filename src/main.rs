@@ -40,7 +40,8 @@ fn real_main() -> Result<(), String> {
 
     println!("[ADMIN] Iniciando simulación con: {}", args.as_str());
     let parque = Arc::new(Parque::new(
-        args.capacidad_parque as usize
+        args.capacidad_parque as usize,
+        args.semilla as u64
     ));
     let juegos = args.costo_juegos
         .iter()
