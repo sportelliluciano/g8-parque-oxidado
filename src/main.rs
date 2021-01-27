@@ -5,14 +5,11 @@ mod args;
 mod parque;
 mod persona;
 mod juego;
-mod semaforo;
 
 use std::{
     sync::Arc,
-    sync::Mutex,
-    thread::sleep,
     time::Duration,
-    rc::Rc,
+    thread::sleep,
 };
 
 use args::{parse_args, mostrar_ayuda, ParseArgsResult};

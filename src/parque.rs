@@ -6,18 +6,20 @@ use std::{
     },
     thread::JoinHandle
 };
+use rand::{Rng, SeedableRng, prelude::StdRng};
 use std_semaphore::Semaphore;
 
 use crate::juego::Juego;
 
 pub struct Parque {
-    pub juegos: Mutex<Vec<Arc<Juego>>>,
+    juegos: Mutex<Vec<Arc<Juego>>>,
     // Este mutex no debería ser necesario, pero si no lo pongo el compilador shora
     juegos_threads: Mutex<Vec<JoinHandle<()>>>,
     caja: Arc<AtomicU32>,
     capacidad: Semaphore,
     cantidad_visitantes: AtomicUsize,
     gente_adentro: AtomicU32,
+    rng: Mutex<StdRng>
 }
 
 impl Parque {
@@ -29,6 +31,7 @@ impl Parque {
             gente_adentro: AtomicU32::new(0),
             juegos: Mutex::new(vec![]),
             juegos_threads: Mutex::new(vec![]),
+            rng: Mutex::new(StdRng::seed_from_u64(42))
         }
     }
 
@@ -64,10 +67,7 @@ impl Parque {
         if juegos_posibles.len() == 0 {
             Err("Sos pobre pa, tomatelas")
         } else {   
-            use rand::{Rng,SeedableRng};
-            use rand::rngs::StdRng;
-            let mut rng = StdRng::seed_from_u64(42);
-            // let mut rng = rand::thread_rng();
+            let mut rng = self.rng.lock().expect("posioned rng");
             Ok(juegos_posibles[rng.gen_range(0..juegos_posibles.len())].clone())
         }
     }

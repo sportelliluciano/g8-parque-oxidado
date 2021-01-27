@@ -21,6 +21,7 @@ pub struct Juego {
     cant_espacio_libre: Mutex<usize>,
     cv_cero_espacio_libre: Condvar,
 
+    mutex_hay_espacio: Mutex<bool>,
     salida_barrier: Arc<Barrier>,
     salida_mutex: Mutex<bool>,
 
@@ -40,6 +41,7 @@ impl Juego {
             cant_espacio_libre: Mutex::new(capacidad),
             cv_cero_espacio_libre: Condvar::new(),
 
+            mutex_hay_espacio: Mutex::new(true),
             salida_barrier: Arc::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
             salida_mutex: Mutex::new(true),
 
@@ -52,13 +54,11 @@ impl Juego {
 
             // *** Esperar a que entre la gente ***
             println!("[JUEGO {}] Esperando a la gente", self.id);
-            //  >> espacio_libre.unlock(); atomico con el wait siguiente, las personas pueden empezar a entrar
             let (mut espacio_libre, timeout) =
                 self.cv_cero_espacio_libre.wait_timeout(
                     self.cant_espacio_libre.lock().expect("poisoned"),
                     Duration::from_secs(5)
                 ).expect("poisoned");
-            //  >> espacio_libre.lock(); los que hacen entrar se quedan lockeados atomicamente con el wait, no pueden entrar mas
 
             if timeout.timed_out() {
                 // Timed out -> ver si hay gente y correr el juego.
@@ -99,24 +99,18 @@ impl Juego {
     }
 
     pub fn entrar(&self, persona: &mut Persona) {
+        let hay_espacio = self.mutex_hay_espacio.lock();
         let mut espacio_libre = self.cant_espacio_libre.lock().expect("poison");
+        *espacio_libre -= 1;
         if *espacio_libre == 0 {
-            // Si pude tomar el lock aunque la condicion ya se cumplió
-            // Esto es posible ya que hay un tiempo entre el notify_one y que se despierte el thread juego y por lo tanto se lockee la cantidad
-            // En este caso, desalojar este thread para permitir que el otro se despierte e intentar nuevamente entrar al juego
-            drop(espacio_libre);
             self.cv_cero_espacio_libre.notify_one();
-            std::thread::yield_now();
-            self.entrar(persona);
         } else {
-            *espacio_libre -= 1;
-            if *espacio_libre == 0 {
-                println!("[PERSONA {}] NOTIFICO CANTIDAD 0", persona.id);
-                self.cv_cero_espacio_libre.notify_one();
-            }
-            drop(espacio_libre);
-            self.jugar(persona);
+            // Si todavia queda espacio: desbloquear el mutex hay_espacio.
+            // Sino se desbloquea después de que juegue y salga la ultima persona que entró.
+            drop(hay_espacio);
         }
+        drop(espacio_libre);
+        self.jugar(persona);
     }
 
     fn cobrar_entrada(&self, persona: &mut Persona) {
@@ -133,7 +127,7 @@ impl Juego {
 
     fn salir(&self) {
         // lockear el mutex de la salida para salir de a uno
-        self.salida_mutex.lock().expect("poison");
+        let _ = self.salida_mutex.lock().expect("poison");
     }
 
     /// Cantidad de desperfectos que ocurrieron (el parque lo usa)
