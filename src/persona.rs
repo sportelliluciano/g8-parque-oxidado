@@ -29,8 +29,8 @@ fn persona_thread_main(parque: Arc<Parque>, presupuesto_inicial: u32, id: usize)
         };
         
         println!("[Persona {}] Entrando al juego {}.", id, juego.id());
-        juego.entrar(); // Bajar el sem
-        // println!("[Persona {}] Logré entrar al juego {}. Tengo $ {} y voy a pagar $ {}, me quedan {}", id, juego.id, presu, juego.precio(), presu - juego.precio());
+        juego.entrar(id); // Bajar el sem
+        println!("[Persona {}] Logré entrar al juego {}. Tengo $ {} y voy a pagar $ {}, me quedan {}", id, juego.id, presu, juego.precio(), presu - juego.precio());
         presu -= juego.precio();  // ????
         parque.pagar(juego.precio());
         juego.jugar();  // Esperar la barrera

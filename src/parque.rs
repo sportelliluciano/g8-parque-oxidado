@@ -63,8 +63,10 @@ impl Parque {
         if juegos_posibles.len() == 0 {
             Err("Sos pobre pa, tomatelas")
         } else {   
-            use rand::Rng;
-            let mut rng = rand::thread_rng();
+            use rand::{Rng,SeedableRng};
+            use rand::rngs::StdRng;
+            let mut rng = StdRng::seed_from_u64(42);
+            // let mut rng = rand::thread_rng();
             Ok(juegos_posibles[rng.gen_range(0..juegos_posibles.len())].clone())
         }
     }

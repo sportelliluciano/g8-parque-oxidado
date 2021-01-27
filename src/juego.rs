@@ -3,9 +3,11 @@ use std::{
     sync::atomic::Ordering,
     sync::Condvar,
     sync::Mutex,
-    thread::sleep,
+    sync::Barrier,
+    sync::Arc,
     time::Duration
 };
+use std::thread;
 
 use std_semaphore::Semaphore;
 
@@ -23,6 +25,8 @@ pub struct Juego {
 
     salida: Mutex<bool>,
     juego_terminado: Condvar,
+
+    salida_2: Arc<Barrier>,
 }
 
 impl Juego {
@@ -39,6 +43,8 @@ impl Juego {
 
             juego_terminado: Condvar::new(),
             salida: Mutex::new(true),
+
+            salida_2: Arc::new(Barrier::new(2 + 1)), // TODO modificar junto a la capacidad, +1 para esperar el del juego
         }
     }
 
@@ -65,11 +71,22 @@ impl Juego {
 
             println!("[JUEGO {}] Arrancando el juego con {}/{} personas", self.id, gente_adentro, self.capacidad);
             // *** Arrancar el juego ***
-            sleep(Duration::from_millis(self.tiempo as u64));
+            thread::sleep(Duration::from_millis(self.tiempo as u64));
             println!("[JUEGO {}] Terminado, esperando que salga la gente", self.id);
             // self.juego_terminado.notify_all();
-            for _persona in 0..gente_adentro {
-                self.sem_juego.release();
+            // for _persona in 0..gente_adentro {
+                // self.sem_juego.release();
+            // }
+            let mut handles = vec![];
+            for _persona in 0..(*espacio_libre + 1) {
+                let salida_2_c = Arc::clone(&self.salida_2);
+                let handle = thread::spawn(move || {
+                    salida_2_c.wait();
+                });
+                handles.push(handle);
+            }
+            for handle in handles {
+                handle.join().unwrap();
             }
             println!("[JUEGO {}] Salió toda la gente, re-arrancando", self.id);
             *espacio_libre = self.capacidad as isize;
@@ -78,14 +95,15 @@ impl Juego {
         println!("[JUEGO {}] Cerrado", self.id);
     }
 
-    pub fn entrar(&self) {
-        self.sem_entrada.acquire();
+    pub fn entrar(&self, id: usize) {
+        self.sem_entrada.acquire(id);
     }
 
     pub fn jugar(&self) {
         // TODO que este metodo no exista mas, que sea implicito con el entrar
         // self.juego_terminado.wait(self.salida.lock().expect("poisoned")).expect("TODO no se");
-        self.sem_juego.acquire();
+        // self.sem_juego.acquire();
+        self.salida_2.wait();
     }
 
     /// Cantidad de desperfectos que ocurrieron (el parque lo usa)

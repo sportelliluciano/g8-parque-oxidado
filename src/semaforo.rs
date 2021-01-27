@@ -1,4 +1,4 @@
-use std::sync::{Condvar, Mutex, MutexGuard, WaitTimeoutResult};
+use std::{sync::{Condvar, Mutex, MutexGuard, WaitTimeoutResult}, thread};
 use std::time::Duration;
 
 use std_semaphore::Semaphore;
@@ -18,7 +18,7 @@ impl Semaforo {
         }
     }
 
-    pub fn acquire(&self) {
+    pub fn acquire(&self, persona_id: usize) {
         // self.sem.acquire();
         let mut cantidad = self.cantidad.lock().expect("poison");
         if *cantidad == 0 {
@@ -26,14 +26,15 @@ impl Semaforo {
             // Esto es posible ya que hay un tiempo entre el notify_one y que se despierte el thread juego y por lo tanto se lockee la cantidad
             // En este caso, desalojar este thread para permitir que el otro se despierte e intentar nuevamente entra al juego
             drop(cantidad);
-            println!("NOTIFICO CANTIDAD 0 cuando ya era 0");
+            println!("[PERSONA {}] NOTIFICO CANTIDAD 0 cuando ya era 0", persona_id);
+            // std::thread::sleep(Duration::from_millis(25 as u64));
             self.cv_cero.notify_one();
             std::thread::yield_now();
-            self.acquire();
+            self.acquire(persona_id);
         } else {
             *cantidad -= 1;
             if *cantidad == 0 {
-                println!("NOTIFICO CANTIDAD 0");
+                println!("[PERSONA {}] NOTIFICO CANTIDAD 0", persona_id);
                 self.cv_cero.notify_one();
             }
         }
