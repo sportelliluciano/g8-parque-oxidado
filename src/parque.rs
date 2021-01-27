@@ -13,7 +13,6 @@ use crate::juego::Juego;
 
 pub struct Parque {
     juegos: Mutex<Vec<Arc<Juego>>>,
-    // Este mutex no debería ser necesario, pero si no lo pongo el compilador shora
     juegos_threads: Mutex<Vec<JoinHandle<()>>>,
     caja: Arc<AtomicU32>,
     capacidad: Semaphore,

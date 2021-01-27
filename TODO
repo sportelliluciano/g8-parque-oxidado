@@ -1,0 +1,6 @@
+- Ver hilos de personas falsas en `juego.rs`
+- Pruebas unitarias
+- Sacar inicio de threads de los juegos del parque (pasarlos a main).
+- Meter logger
+- Meter capacidad y tiempo de juegos en la CLI
+- Pasar clippy (linter)
