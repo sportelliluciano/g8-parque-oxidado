@@ -96,7 +96,7 @@ impl Parque {
         self.cantidad_visitantes.load(Ordering::SeqCst)
     }
 
-    pub fn obtener_genete_adentro(&self) -> u32 {
+    pub fn obtener_gente_adentro(&self) -> u32 {
         self.gente_adentro.load(Ordering::SeqCst)
     }
 

@@ -77,7 +77,7 @@ fn real_main() -> Result<(), String> {
         log.write(&format!("Caja: $ {}, desperfectos: {}, gente adentro: {}", 
                  parque.obtener_caja(), 
                  parque.obtener_desperfectos(),
-                 parque.obtener_genete_adentro()));
+                 parque.obtener_gente_adentro()));
     }
     
     log.write("Salieron todos, cerrando el parque");
