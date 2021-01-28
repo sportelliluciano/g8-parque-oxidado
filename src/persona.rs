@@ -67,9 +67,4 @@ impl Persona {
         juego.agregar_a_la_fila(self);
         self.log.write(&format!("Jugué al juego {} y salí.", juego.id));
     }
-
-    /// TODO: Esto es puramente para logging. Eliminar?
-    pub fn juego_iniciando(&self, id_juego: usize) {
-        self.log.write(&format!("Logré entrar al juego {}, empenzado a jugar", id_juego));
-    }
 }

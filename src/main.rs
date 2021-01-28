@@ -74,17 +74,16 @@ fn real_main() -> Result<(), String> {
     
     while parque.obtener_cantidad_gente_que_salio_del_parque() < args.presupuesto_personas.len() {
         sleep(Duration::from_millis(5000));
-        log.write(&format!("Caja: $ {}, desperfectos: {}, gente adentro: {}", 
+        log.write(&format!("Caja: $ {}, desperfectos: {}",
                  parque.obtener_caja(), 
-                 parque.obtener_desperfectos(),
-                 parque.obtener_gente_adentro()));
+                 parque.obtener_desperfectos()));
     }
     
     log.write("Salieron todos, cerrando el parque");
     parque.cerrar();
     log.write("Terminado");
 
-    log.write(&format!("Caja final: $ {}, desperfectos: {}", 
+    log.write(&format!("Caja final: $ {}, desperfectos: {}",
                  parque.obtener_caja(), 
                  parque.obtener_desperfectos()));
 
