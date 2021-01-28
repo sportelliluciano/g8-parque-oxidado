@@ -127,7 +127,7 @@ impl Juego {
 
     fn jugar(&self, persona: &mut Persona) {
         self.cobrar_entrada(persona);
-        persona.juego_iniciando(self.id);
+        self.log.write(&format!("Persona {} logró entrar al juego", persona.id));
         self.salida_barrier.wait();
         self.salir();
     }
