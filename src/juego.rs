@@ -5,9 +5,12 @@ use std::{
     sync::Mutex,
     sync::Barrier,
     sync::Arc,
+    sync::RwLock,
     time::Duration
 };
 use std::thread;
+
+use std_semaphore::Semaphore;
 
 use crate::{logger::TaggedLogger, parque::Parque, persona::Persona};
 
@@ -22,7 +25,9 @@ pub struct Juego {
     hay_espacio_mutex: Mutex<()>,
     cv_cero_espacio_libre: Condvar,
 
-    salida_barrier: Arc<Barrier>,
+    sem_juego_en_curso: Semaphore,
+
+    salida_barrier: RwLock<Barrier>,
     salida_mutex: Mutex<()>,
 
     cerrar: AtomicBool,
@@ -43,7 +48,9 @@ impl Juego {
             hay_espacio_mutex: Mutex::new(()),
             cv_cero_espacio_libre: Condvar::new(),
 
-            salida_barrier: Arc::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
+            sem_juego_en_curso: Semaphore::new(0),
+
+            salida_barrier: RwLock::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
             salida_mutex: Mutex::new(()),
 
             cerrar: AtomicBool::new(false),
@@ -86,17 +93,16 @@ impl Juego {
             thread::sleep(Duration::from_millis(self.tiempo as u64));
 
             self.log.write("Terminado, esperando que salga la gente");
-            let mut handles = vec![];
-            for _persona in 0..(*espacio_libre + 1) {
-                let salida_barrier_c = Arc::clone(&self.salida_barrier);
-                let handle = thread::spawn(move || {
-                    salida_barrier_c.wait();
-                });
-                handles.push(handle);
+            {
+                let mut salida_barrier = self.salida_barrier.write().expect("poison");
+                *salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
             }
-            for handle in handles {
-                handle.join().unwrap();
+            for _persona in 0..gente_adentro {
+                self.sem_juego_en_curso.release();
             }
+
+            let salida_barrier = self.salida_barrier.read().expect("poison"); 
+            salida_barrier.wait();
 
             self.log.write("Salió toda la gente, re-arrancando");
             *espacio_libre = self.capacidad;
@@ -128,11 +134,13 @@ impl Juego {
     fn jugar(&self, persona: &mut Persona) {
         self.cobrar_entrada(persona);
         self.log.write(&format!("Persona {} logró entrar al juego", persona.id));
-        self.salida_barrier.wait();
+        self.sem_juego_en_curso.acquire();
         self.salir();
     }
 
     fn salir(&self) {
+        let barrier = self.salida_barrier.read().expect("poisoned");
+        barrier.wait();
         // lockear el mutex de la salida para salir de a uno
         let _mutex = self.salida_mutex.lock().expect("poison");
     }
