@@ -119,7 +119,7 @@ impl Juego {
         self.log.write("Todas las personas salienron del juego, iniciando una nueva vuelta");
     }
 
-    pub fn admitir(&self, persona: &mut Persona) {
+    pub fn agregar_a_la_fila(&self, persona: &mut Persona) {
         // TODO cobrar la entrada acá?
         // la consigna dice Cuando la persona llega a la puerta del juego elegido, debe abonar la entrada
         // cuestionable si la "fila" esta es la entrada o no
@@ -134,7 +134,7 @@ impl Juego {
             drop(hay_espacio);
         }
         drop(espacio_libre);
-        self.permitir_jugar(persona);
+        self.admitir_para_jugar(persona);
     }
 
     fn cobrar_entrada(&self, persona: &mut Persona) {
@@ -142,7 +142,7 @@ impl Juego {
         self.parque.guardar_dinero(self.precio);
     }
 
-    fn permitir_jugar(&self, persona: &mut Persona) {
+    fn admitir_para_jugar(&self, persona: &mut Persona) {
         self.cobrar_entrada(persona);
         persona.juego_iniciando(self.id);
         self.sem_juego_en_curso.acquire();

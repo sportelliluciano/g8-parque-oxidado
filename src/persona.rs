@@ -64,7 +64,7 @@ impl Persona {
 
     fn jugar(&mut self, juego: Arc<Juego>) {
         self.log.write(&format!("Entrando a la fila del juego {}.", juego.id));
-        juego.admitir(self);
+        juego.agregar_a_la_fila(self);
         self.log.write(&format!("Jugué al juego {} y salí.", juego.id));
     }
 
