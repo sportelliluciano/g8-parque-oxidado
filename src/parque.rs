@@ -67,7 +67,7 @@ impl Parque {
         let juegos_posibles = self.obtener_juegos_posibles(presupuesto_maximo);
         if juegos_posibles.is_empty() {
             Err("No alcanza el dinero")
-        } else {   
+        } else {
             let mut rng = self.rng.lock().expect("posioned rng");
             Ok(juegos_posibles[rng.gen_range(0..juegos_posibles.len())].clone())
         }
