@@ -17,7 +17,6 @@ pub struct Parque {
     caja: Arc<AtomicU32>,
     capacidad: Semaphore,
     cantidad_visitantes: AtomicUsize,
-    gente_adentro: AtomicU32,
     rng: Mutex<StdRng>,
     log: TaggedLogger
 }
@@ -28,7 +27,6 @@ impl Parque {
             caja: Arc::new(AtomicU32::new(0)), 
             capacidad: Semaphore::new(capacidad as isize),
             cantidad_visitantes: AtomicUsize::new(0),
-            gente_adentro: AtomicU32::new(0),
             juegos: Mutex::new(vec![]),
             juegos_threads: Mutex::new(vec![]),
             rng: Mutex::new(StdRng::seed_from_u64(semilla)),
@@ -69,32 +67,20 @@ impl Parque {
         }
     }
 
-    // TODO Eliminar gente_adentro?
-    // la consigna dice Periódicamente, el Administrador del parque consulta la recaudación de la caja y la cantidad de veces que hubo desperfectos mecánicos.
-    // no la cantidad de gente que queda adentro del parque
     pub fn permitir_ingresar_persona(&self) {
         self.capacidad.acquire();
-        self.gente_adentro.fetch_add(1, Ordering::SeqCst);
     }
 
     pub fn permitir_salir_persona(&self) {
         self.cantidad_visitantes.fetch_add(1, Ordering::SeqCst);
         self.capacidad.release();
-        self.gente_adentro.fetch_sub(1, Ordering::SeqCst);
     }
 
     pub fn obtener_cantidad_gente_que_salio_del_parque(&self) -> usize {
-        // Originalmente esto era while hay_gente_adentro() { ... }
-        // Pero eso llevaba a una race condition donde el parque se cerraba
-        // antes de que entre la primer persona...
-        // Solución fea: en lugar de ver cuanta gente hay adentro, contar
-        // cuanta gente salió del parque (y revisar que todos los que tenían
-        // que entrar hayan salido).
+        // En lugar de ver cuanta gente hay adentro, contar
+        // cuanta gente salió del parque y revisar que todos los que tenían
+        // que entrar hayan salido.
         self.cantidad_visitantes.load(Ordering::SeqCst)
-    }
-
-    pub fn obtener_gente_adentro(&self) -> u32 {
-        self.gente_adentro.load(Ordering::SeqCst)
     }
 
     pub fn cerrar(&self) {
