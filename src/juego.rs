@@ -58,11 +58,12 @@ impl Juego {
         }
     }
 
-    pub fn thread_main(&self) {
+    pub fn iniciar_funcionamiento(&self) {
         while !self.cerrar.load(Ordering::SeqCst) {
+            // Dar una vuelta del juego
 
             // *** Esperar a que entre la gente ***
-            self.log.write("Esperando a la gente");
+            self.log.write("Esperando personas para iniciar la vuelta");
             let (mut espacio_libre, timeout) =
                 self.cv_cero_espacio_libre.wait_timeout(
                     self.cant_espacio_libre.lock().expect("poisoned"),
@@ -71,20 +72,20 @@ impl Juego {
 
             if timeout.timed_out() {
                 // Timed out -> ver si hay gente y correr el juego.
-                self.log.write("(TIMEOUT) esperando a la gente");
                 if *espacio_libre == self.capacidad {
-                    self.log.write("(TIMEOUT) no hay gente, loopeando");
+                    self.log.write("Tiempo de espera de personas agotado sin ninguna persona lista para jugar, reiniciando espera de personas");
                     continue
+                } else {
+                    self.log.write("Tiempo de espera de personas agotado con personas listas para jugar, iniciando vuelta");
                 }
-            } else if *espacio_libre != 0 { // desbloqueo espurio
-                self.log.write("desbloqueo espurio esperando gente");
+            } else if *espacio_libre != 0 { // desbloqueo espurio de la condvar
                 continue
             }
 
             let gente_adentro = self.capacidad - *espacio_libre;
             self.log.write(
             &format!(
-                    "Arrancando el juego con {}/{} personas", 
+                    "Arrancando la vuelta del juego con {}/{} personas",
                     gente_adentro, self.capacidad
                 )
             );
@@ -92,26 +93,33 @@ impl Juego {
             // *** Arrancar el juego ***
             thread::sleep(Duration::from_millis(self.tiempo as u64));
 
-            self.log.write("Terminado, esperando que salga la gente");
-            {
-                let mut salida_barrier = self.salida_barrier.write().expect("poison");
-                *salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
-            }
-            for _persona in 0..gente_adentro {
-                self.sem_juego_en_curso.release();
-            }
+            self.terminar_vuelta(gente_adentro);
 
-            let salida_barrier = self.salida_barrier.read().expect("poison"); 
-            salida_barrier.wait();
-
-            self.log.write("Salió toda la gente, re-arrancando");
+            // Marcar todo el espacio como libre para que puedan entrar nuevas personas al juego en la siguiente vuelta
             *espacio_libre = self.capacidad;
         }
 
         self.log.write("Cerrado");
     }
 
-    pub fn entrar(&self, persona: &mut Persona) {
+    fn terminar_vuelta(&self, gente_adentro: usize) {
+        // setear la cantidad de personas a esperar que usen la salida previo a avisar que dejen sus lugares
+        {
+            let mut salida_barrier = self.salida_barrier.write().expect("poison");
+            *salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
+        }
+        self.log.write("Vuelta terminada, esperando que las personas dejen sus lugares");
+        // avisar que el juego terminó
+        for _persona in 0..gente_adentro {
+            self.sem_juego_en_curso.release();
+        }
+        self.log.write("Esperando que las personas salgan del juego");
+        let salida_barrier = self.salida_barrier.read().expect("poison");
+        salida_barrier.wait();
+        self.log.write("Todas las personas salienron del juego, iniciando una nueva vuelta");
+    }
+
+    pub fn admitir(&self, persona: &mut Persona) {
         let hay_espacio = self.hay_espacio_mutex.lock().expect("poisoned");
         let mut espacio_libre = self.cant_espacio_libre.lock().expect("poison");
         *espacio_libre -= 1;
@@ -123,7 +131,7 @@ impl Juego {
             drop(hay_espacio);
         }
         drop(espacio_libre);
-        self.jugar(persona);
+        self.permitir_jugar(persona);
     }
 
     fn cobrar_entrada(&self, persona: &mut Persona) {
@@ -131,14 +139,14 @@ impl Juego {
         self.parque.guardar_dinero(self.precio);
     }
 
-    fn jugar(&self, persona: &mut Persona) {
+    fn permitir_jugar(&self, persona: &mut Persona) {
         self.cobrar_entrada(persona);
         persona.juego_iniciando(self.id);
         self.sem_juego_en_curso.acquire();
-        self.salir();
+        self.permitir_salir();
     }
 
-    fn salir(&self) {
+    fn permitir_salir(&self) {
         let barrier = self.salida_barrier.read().expect("poisoned");
         barrier.wait();
         // lockear el mutex de la salida para salir de a uno

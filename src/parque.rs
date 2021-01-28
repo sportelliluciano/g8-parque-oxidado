@@ -43,7 +43,7 @@ impl Parque {
             let juego_ref = Arc::new(juego);
             juegos_vec.push(juego_ref.clone());
             juegos_threads_vec.push(std::thread::spawn(move || {
-                juego_ref.thread_main();
+                juego_ref.iniciar_funcionamiento();
             }));
         }
     }

@@ -55,13 +55,17 @@ impl Persona {
                 Err(_) => break
             };
 
-            self.log.write(&format!("Entrando a la fila del juego {}.", juego.id));
-            juego.entrar(self);
-            self.log.write(&format!("Jugué al juego {} y salí.", juego.id));
+            self.jugar(juego);
         }
         self.log.write(&format!("No me alcanza para ningun juego (me quedaron $ {})", self.presupuesto));
         parque.salir_persona();
         self.log.write("Me fui del parque");
+    }
+
+    fn jugar(&mut self, juego: Arc<Juego>) {
+        self.log.write(&format!("Entrando a la fila del juego {}.", juego.id));
+        juego.admitir(self);
+        self.log.write(&format!("Jugué al juego {} y salí.", juego.id));
     }
 
     /// TODO: Esto es puramente para logging. Eliminar?
