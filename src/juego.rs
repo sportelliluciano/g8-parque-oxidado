@@ -93,31 +93,16 @@ impl Juego {
             thread::sleep(Duration::from_millis(self.tiempo as u64));
 
             self.log.write("Terminado, esperando que salga la gente");
-            // No tengo la menor idea de como resolver esto, prestarlo como mutable es un bardo, necesitaria
-            // un mutex por cada juego en el parque.
-            // Meter la barrera adentro de un mutex no tiene sentido
             {
                 let mut salida_barrier = self.salida_barrier.write().expect("poison");
-                *salida_barrier = Barrier::new(gente_adentro + 1);
+                *salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
             }
-            // self.salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
-            for _persona in 0..*espacio_libre {
+            for _persona in 0..gente_adentro {
                 self.sem_juego_en_curso.release();
             }
 
             let salida_barrier = self.salida_barrier.read().expect("poison"); 
             salida_barrier.wait();
-            // let mut handles = vec![];
-            // for _persona in 0..(*espacio_libre + 1) {
-                // let salida_barrier_c = Arc::clone(&self.salida_barrier);
-                // let handle = thread::spawn(move || {
-                    // salida_barrier_c.wait();
-                // });
-                // handles.push(handle);
-            // }
-            // for handle in handles {
-                // handle.join().unwrap();
-            // }
 
             self.log.write("Salió toda la gente, re-arrancando");
             *espacio_libre = self.capacidad;
