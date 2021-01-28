@@ -69,14 +69,15 @@ impl Parque {
         }
     }
 
-    /// TODO: Chequear race condition / inconsistencia????
-    pub fn ingresar_persona(&self) {
+    // TODO Eliminar gente_adentro?
+    // la consigna dice Periódicamente, el Administrador del parque consulta la recaudación de la caja y la cantidad de veces que hubo desperfectos mecánicos.
+    // no la cantidad de gente que queda adentro del parque
+    pub fn permitir_ingresar_persona(&self) {
         self.capacidad.acquire();
         self.gente_adentro.fetch_add(1, Ordering::SeqCst);
     }
 
-    /// TODO: Chequear race condition / inconsistencia????
-    pub fn salir_persona(&self) {
+    pub fn permitir_salir_persona(&self) {
         self.cantidad_visitantes.fetch_add(1, Ordering::SeqCst);
         self.capacidad.release();
         self.gente_adentro.fetch_sub(1, Ordering::SeqCst);
