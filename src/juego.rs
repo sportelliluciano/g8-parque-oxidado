@@ -9,6 +9,8 @@ use std::{
 };
 use std::thread;
 
+use std_semaphore::Semaphore;
+
 use crate::{logger::TaggedLogger, parque::Parque, persona::Persona};
 
 pub struct Juego {
@@ -22,7 +24,9 @@ pub struct Juego {
     hay_espacio_mutex: Mutex<()>,
     cv_cero_espacio_libre: Condvar,
 
-    salida_barrier: Arc<Barrier>,
+    sem_juego_en_curso: Semaphore,
+
+    salida_barrier: Barrier,
     salida_mutex: Mutex<()>,
 
     cerrar: AtomicBool,
@@ -43,7 +47,9 @@ impl Juego {
             hay_espacio_mutex: Mutex::new(()),
             cv_cero_espacio_libre: Condvar::new(),
 
-            salida_barrier: Arc::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
+            sem_juego_en_curso: Semaphore::new(0),
+
+            salida_barrier: Barrier::new(capacidad + 1), // +1 para esperar el del juego
             salida_mutex: Mutex::new(()),
 
             cerrar: AtomicBool::new(false),
@@ -86,17 +92,26 @@ impl Juego {
             thread::sleep(Duration::from_millis(self.tiempo as u64));
 
             self.log.write("Terminado, esperando que salga la gente");
-            let mut handles = vec![];
-            for _persona in 0..(*espacio_libre + 1) {
-                let salida_barrier_c = Arc::clone(&self.salida_barrier);
-                let handle = thread::spawn(move || {
-                    salida_barrier_c.wait();
-                });
-                handles.push(handle);
+            // No tengo la menor idea de como resolver esto, prestarlo como mutable es un bardo, necesitaria
+            // un mutex por cada juego en el parque.
+            // Meter la barrera adentro de un mutex no tiene sentido
+            self.salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
+            for _persona in 0..*espacio_libre {
+                self.sem_juego_en_curso.release();
             }
-            for handle in handles {
-                handle.join().unwrap();
-            }
+
+            self.salida_barrier.wait();
+            // let mut handles = vec![];
+            // for _persona in 0..(*espacio_libre + 1) {
+                // let salida_barrier_c = Arc::clone(&self.salida_barrier);
+                // let handle = thread::spawn(move || {
+                    // salida_barrier_c.wait();
+                // });
+                // handles.push(handle);
+            // }
+            // for handle in handles {
+                // handle.join().unwrap();
+            // }
 
             self.log.write("Salió toda la gente, re-arrancando");
             *espacio_libre = self.capacidad;
@@ -128,11 +143,12 @@ impl Juego {
     fn jugar(&self, persona: &mut Persona) {
         self.cobrar_entrada(persona);
         persona.juego_iniciando(self.id);
-        self.salida_barrier.wait();
+        self.sem_juego_en_curso.acquire();
         self.salir();
     }
 
     fn salir(&self) {
+        self.salida_barrier.wait();
         // lockear el mutex de la salida para salir de a uno
         let _mutex = self.salida_mutex.lock().expect("poison");
     }
