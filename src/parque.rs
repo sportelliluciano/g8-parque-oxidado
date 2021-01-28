@@ -48,10 +48,6 @@ impl Parque {
         }
     }
 
-    pub fn guardar_dinero(&self, monto: u32) {
-        self.caja.fetch_add(monto, Ordering::SeqCst);
-    }
-
     fn obtener_juegos_posibles(&self, presupuesto_maximo: u32) -> Vec<Arc<Juego>> {
         let mut resultado = vec![];
         for juego in self.juegos.lock().expect("poisoned").iter() {
@@ -111,6 +107,10 @@ impl Parque {
             juego_thread.join().expect("cannot join thread");
         }
         self.log.write("Parque cerrado");
+    }
+
+    pub fn guardar_dinero(&self, monto: u32) {
+        self.caja.fetch_add(monto, Ordering::SeqCst);
     }
 
     pub fn obtener_caja(&self) -> u32 {
