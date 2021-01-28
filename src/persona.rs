@@ -40,7 +40,7 @@ impl Persona {
 
     pub fn pagar_juego(&mut self, juego: &Juego) -> u32 {
         let presupuesto_restante = self.presupuesto - juego.precio;
-        self.log.write(&format!("Pagando juego {}. Tenía $ {} y pagué $ {}, me quedan {}", juego.id, self.presupuesto, juego.precio, presupuesto_restante));
+        self.log.write(&format!("Pagando juego {}. Tenía $ {} y pagué $ {}, me quedan $ {}", juego.id, self.presupuesto, juego.precio, presupuesto_restante));
         self.presupuesto = presupuesto_restante;
         self.presupuesto
     }
@@ -48,7 +48,7 @@ impl Persona {
     pub fn visitar_parque(&mut self, parque: Arc<Parque>) {
         self.log.write("Esperando para entrar al parque");
         parque.ingresar_persona();
-        self.log.write(&format!("Entre al parque con {} pesos", self.presupuesto));
+        self.log.write(&format!("Entre al parque con $ {}", self.presupuesto));
         while self.presupuesto > 0 {
             let juego = match parque.elegir_juego_random(self.presupuesto) {
                 Ok(juego) => juego,
