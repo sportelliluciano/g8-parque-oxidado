@@ -63,9 +63,4 @@ impl Persona {
         parque.salir_persona();
         self.log.write("Me fui del parque");
     }
-
-    /// TODO: Esto es puramente para logging. Eliminar?
-    pub fn juego_iniciando(&self, id_juego: usize) {
-        self.log.write(&format!("Logré entrar al juego {}, empenzado a jugar", id_juego));
-    }
 }
