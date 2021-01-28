@@ -14,16 +14,15 @@ use std::{
 };
 
 use args::{parse_args, mostrar_ayuda, ParseArgsResult};
-use logger::Logger;
+use logger::{Logger, TaggedLogger};
 use parque::Parque;
 use juego::Juego;
 use persona::iniciar_hilos_personas;
 
 
 fn main()  {
-    match real_main() {
-        Err(e) => println!("ERROR: {}", e),
-        _ => {}
+    if let Err(e) = real_main() {
+        println!("ERROR: {}", e);
     }
 }
 
@@ -40,28 +39,38 @@ fn real_main() -> Result<(), String> {
         }
     };
 
-    let logger = if args.debug {
+    let logger = Arc::new(if args.debug {
         Logger::to_file("debug.txt").expect("No se pudo crear el archivo de log.")
     } else {
         Logger::to_stdout()
-    };
+    });
 
-    let log = logger.get_logger("ADMIN");
+    let log = TaggedLogger::new("ADMIN", logger.clone());
     log.write(&format!("Iniciando simulación con: {}", args.as_str()));
     let parque = Arc::new(Parque::new(
+        TaggedLogger::new("PARQUE", logger.clone()),
         args.capacidad_parque as usize,
         args.semilla as u64
     ));
     let juegos = args.costo_juegos
         .iter()
         .enumerate()
-        .map(|(id, costo)| Juego::new(id, Arc::clone(&parque), *costo))
+        .map(|(id, costo)| Juego::new(
+            TaggedLogger::new(&format!("JUEGO {}", id), logger.clone()),
+            id, 
+            Arc::clone(&parque), 
+            *costo
+        ))
         .collect::<Vec<Juego>>();
     
     // iniciar thread de juegos
     parque.registrar_juegos(juegos);
 
-    let personas_threads = iniciar_hilos_personas(Arc::clone(&parque), &args.presupuesto_personas);
+    let personas_threads = iniciar_hilos_personas(
+        Arc::clone(&logger), 
+        Arc::clone(&parque), 
+        &args.presupuesto_personas
+    );
     
     while parque.obtener_cantidad_gente_que_salio_del_parque() < args.presupuesto_personas.len() {
         sleep(Duration::from_millis(5000));

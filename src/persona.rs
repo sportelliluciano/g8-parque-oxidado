@@ -3,15 +3,19 @@ use std::{
     thread::JoinHandle
 };
 
-use crate::parque::Parque;
+use crate::{logger::{Logger, TaggedLogger}, parque::Parque};
 use crate::juego::Juego;
 
-pub fn iniciar_hilos_personas(parque: Arc<Parque>, presupuestos: &Vec<u32>) -> Vec<JoinHandle<()>> {
+pub fn iniciar_hilos_personas(logger: Arc<Logger>, parque: Arc<Parque>, presupuestos: &Vec<u32>) -> Vec<JoinHandle<()>> {
     let mut handles = vec![];
     for (id, presupuesto_persona) in presupuestos.iter().enumerate() {
         let parque_child = parque.clone();
         let presupuesto_persona = *presupuesto_persona;
-        let mut persona = Persona::new(id, presupuesto_persona);
+        let mut persona = Persona::new(
+            TaggedLogger::new(&format!("PERSONA {}", id), logger.clone()),
+            id, 
+            presupuesto_persona
+        );
         handles.push(std::thread::spawn(move || {
             persona.visitar_parque(parque_child);
         }));
@@ -22,39 +26,46 @@ pub fn iniciar_hilos_personas(parque: Arc<Parque>, presupuestos: &Vec<u32>) -> V
 pub struct Persona {
     pub id: usize,
     presupuesto: u32,
+    log: TaggedLogger
 }
 
 impl Persona {
-    pub fn new(id: usize, presupuesto: u32) -> Self {
+    pub fn new(log: TaggedLogger, id: usize, presupuesto: u32) -> Self {
         Self {
             id,
             presupuesto,
+            log,
         }
     }
 
     pub fn pagar_juego(&mut self, juego: &Juego) -> u32 {
         let presupuesto_restante = self.presupuesto - juego.precio;
-        println!("[Persona {}] Pagando juego {}. Tenía $ {} y pagué $ {}, me quedan {}", self.id, juego.id, self.presupuesto, juego.precio, presupuesto_restante);
+        self.log.write(&format!("Pagando juego {}. Tenía $ {} y pagué $ {}, me quedan {}", juego.id, self.presupuesto, juego.precio, presupuesto_restante));
         self.presupuesto = presupuesto_restante;
         self.presupuesto
     }
 
     pub fn visitar_parque(&mut self, parque: Arc<Parque>) {
-        println!("[Persona {}] Esperando para entrar al parque", self.id);
+        self.log.write("Esperando para entrar al parque");
         parque.ingresar_persona();
-        println!("[Persona {}] Entre al parque con {} pesos", self.id, self.presupuesto);
+        self.log.write(&format!("Entre al parque con {} pesos", self.presupuesto));
         while self.presupuesto > 0 {
             let juego = match parque.elegir_juego_random(self.presupuesto) {
                 Ok(juego) => juego,
                 Err(_) => break
             };
 
-            println!("[Persona {}] Entrando a la fila del juego {}.", self.id, juego.id);
+            self.log.write(&format!("Entrando a la fila del juego {}.", juego.id));
             juego.entrar(self);
-            println!("[Persona {}] Jugué al juego {} y salí.", self.id, juego.id);
+            self.log.write(&format!("Jugué al juego {} y salí.", juego.id));
         }
-        println!("[Persona {}] No me alcanza para ningun juego (me quedaron $ {})", self.id, self.presupuesto);
+        self.log.write(&format!("No me alcanza para ningun juego (me quedaron $ {})", self.presupuesto));
         parque.salir_persona();
-        println!("[Persona {}] Me fui del parque", self.id);
+        self.log.write("Me fui del parque");
+    }
+
+    /// TODO: Esto es puramente para logging. Eliminar?
+    pub fn juego_iniciando(&self, id_juego: usize) {
+        self.log.write(&format!("Logré entrar al juego {}, empenzado a jugar", id_juego));
     }
 }

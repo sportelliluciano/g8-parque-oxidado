@@ -9,7 +9,7 @@ use std::{
 use rand::{Rng, SeedableRng, prelude::StdRng};
 use std_semaphore::Semaphore;
 
-use crate::juego::Juego;
+use crate::{juego::Juego, logger::TaggedLogger};
 
 pub struct Parque {
     juegos: Mutex<Vec<Arc<Juego>>>,
@@ -18,11 +18,12 @@ pub struct Parque {
     capacidad: Semaphore,
     cantidad_visitantes: AtomicUsize,
     gente_adentro: AtomicU32,
-    rng: Mutex<StdRng>
+    rng: Mutex<StdRng>,
+    log: TaggedLogger
 }
 
 impl Parque {
-    pub fn new(capacidad: usize, semilla: u64) -> Self {
+    pub fn new(log: TaggedLogger, capacidad: usize, semilla: u64) -> Self {
         Self {
             caja: Arc::new(AtomicU32::new(0)), 
             capacidad: Semaphore::new(capacidad as isize),
@@ -30,7 +31,8 @@ impl Parque {
             gente_adentro: AtomicU32::new(0),
             juegos: Mutex::new(vec![]),
             juegos_threads: Mutex::new(vec![]),
-            rng: Mutex::new(StdRng::seed_from_u64(semilla))
+            rng: Mutex::new(StdRng::seed_from_u64(semilla)),
+            log
         }
     }
 
@@ -99,16 +101,16 @@ impl Parque {
     }
 
     pub fn cerrar(&self) {
-        println!("[PARQUE] Cerrando juegos");
+        self.log.write("Cerrando juegos");
         for juego in self.juegos.lock().expect("poisoned").iter() {
             juego.cerrar();
         }
 
-        println!("[PARQUE] Esperando a que los juegos terminen");
+        self.log.write("Esperando a que los juegos terminen");
         for juego_thread in self.juegos_threads.lock().expect("poisoned").drain(..) {
             juego_thread.join().expect("cannot join thread");
         }
-        println!("[PARQUE] Parque cerrado");
+        self.log.write("Parque cerrado");
     }
 
     pub fn obtener_caja(&self) -> u32 {

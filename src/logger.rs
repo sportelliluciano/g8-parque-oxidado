@@ -1,7 +1,7 @@
 use std::{
     fs::File, 
     io::prelude::*, 
-    sync::Mutex, 
+    sync::{Arc, Mutex}, 
     time::{Duration, Instant}
 };
 
@@ -37,13 +37,6 @@ impl Logger {
         }
     }
 
-    /// Obtiene un nuevo logger con la etiqueta indicada.
-    /// Todos los mensajes emitidos por el logger devuelto
-    /// estarán etiquetados.
-    pub fn get_logger(&self, tag: &str) -> TaggedLogger {
-        TaggedLogger::new(tag, &self)
-    }
-
     /// Vacía los buffers y cierra el archivo de log.
     pub fn close(&self) {
         if let Some(mutex_lock) = &self.file {
@@ -59,13 +52,13 @@ impl Logger {
     }
 }
 
-pub struct TaggedLogger<'a> {
+pub struct TaggedLogger {
     tag: String,
-    logger: &'a Logger
+    logger: Arc<Logger>
 }
 
-impl<'a> TaggedLogger<'a> {
-    pub fn new(tag: &str, logger: &'a Logger) -> Self {
+impl TaggedLogger {
+    pub fn new(tag: &str, logger: Arc<Logger>) -> Self {
         Self {
             tag: tag.into(),
             logger

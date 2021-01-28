@@ -9,7 +9,7 @@ use std::{
 };
 use std::thread;
 
-use crate::{parque::Parque, persona::Persona};
+use crate::{logger::TaggedLogger, parque::Parque, persona::Persona};
 
 pub struct Juego {
     pub id: usize,
@@ -26,10 +26,11 @@ pub struct Juego {
     salida_mutex: Mutex<bool>,
 
     cerrar: AtomicBool,
+    log: TaggedLogger,
 }
 
 impl Juego {
-    pub fn new(id: usize, parque: Arc<Parque>, precio: u32) -> Self {
+    pub fn new(log: TaggedLogger, id: usize, parque: Arc<Parque>, precio: u32) -> Self {
         let capacidad = 2; // TODO que sea parametro
         Self {
             id,
@@ -46,6 +47,7 @@ impl Juego {
             salida_mutex: Mutex::new(true),
 
             cerrar: AtomicBool::new(false),
+            log,
         }
     }
 
@@ -53,7 +55,7 @@ impl Juego {
         while self.cerrar.load(Ordering::SeqCst) != true {
 
             // *** Esperar a que entre la gente ***
-            println!("[JUEGO {}] Esperando a la gente", self.id);
+            self.log.write("Esperando a la gente");
             let (mut espacio_libre, timeout) =
                 self.cv_cero_espacio_libre.wait_timeout(
                     self.cant_espacio_libre.lock().expect("poisoned"),
@@ -62,23 +64,28 @@ impl Juego {
 
             if timeout.timed_out() {
                 // Timed out -> ver si hay gente y correr el juego.
-                println!("[JUEGO {}] (TIMEOUT) esperando a la gente", self.id);
+                self.log.write("(TIMEOUT) esperando a la gente");
                 if *espacio_libre == self.capacidad {
-                    println!("[JUEGO {}] (TIMEOUT) no hay gente, loopeando", self.id);
+                    self.log.write("(TIMEOUT) no hay gente, loopeando");
                     continue
                 }
             } else if *espacio_libre != 0 { // desbloqueo espurio
-                println!("[JUEGO {}] desbloqueo espurio esperando gente", self.id);
+                self.log.write("desbloqueo espurio esperando gente");
                 continue
             }
 
             let gente_adentro = self.capacidad - *espacio_libre;
-            println!("[JUEGO {}] Arrancando el juego con {}/{} personas", self.id, gente_adentro, self.capacidad);
+            self.log.write(
+            &format!(
+                    "Arrancando el juego con {}/{} personas", 
+                    gente_adentro, self.capacidad
+                )
+            );
 
             // *** Arrancar el juego ***
             thread::sleep(Duration::from_millis(self.tiempo as u64));
 
-            println!("[JUEGO {}] Terminado, esperando que salga la gente", self.id);
+            self.log.write("Terminado, esperando que salga la gente");
             let mut handles = vec![];
             for _persona in 0..(*espacio_libre + 1) {
                 let salida_barrier_c = Arc::clone(&self.salida_barrier);
@@ -91,11 +98,11 @@ impl Juego {
                 handle.join().unwrap();
             }
 
-            println!("[JUEGO {}] Salió toda la gente, re-arrancando", self.id);
+            self.log.write("Salió toda la gente, re-arrancando");
             *espacio_libre = self.capacidad;
         }
 
-        println!("[JUEGO {}] Cerrado", self.id);
+        self.log.write("Cerrado");
     }
 
     pub fn entrar(&self, persona: &mut Persona) {
@@ -120,7 +127,7 @@ impl Juego {
 
     fn jugar(&self, persona: &mut Persona) {
         self.cobrar_entrada(persona);
-        println!("[Persona {}] Logré entrar al juego {}, empenzado a jugar", persona.id, self.id);
+        persona.juego_iniciando(self.id);
         self.salida_barrier.wait();
         self.salir();
     }
