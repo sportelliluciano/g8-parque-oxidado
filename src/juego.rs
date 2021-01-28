@@ -5,6 +5,7 @@ use std::{
     sync::Mutex,
     sync::Barrier,
     sync::Arc,
+    sync::RwLock,
     time::Duration
 };
 use std::thread;
@@ -26,7 +27,7 @@ pub struct Juego {
 
     sem_juego_en_curso: Semaphore,
 
-    salida_barrier: Barrier,
+    salida_barrier: RwLock<Barrier>,
     salida_mutex: Mutex<()>,
 
     cerrar: AtomicBool,
@@ -49,7 +50,7 @@ impl Juego {
 
             sem_juego_en_curso: Semaphore::new(0),
 
-            salida_barrier: Barrier::new(capacidad + 1), // +1 para esperar el del juego
+            salida_barrier: RwLock::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
             salida_mutex: Mutex::new(()),
 
             cerrar: AtomicBool::new(false),
@@ -95,12 +96,17 @@ impl Juego {
             // No tengo la menor idea de como resolver esto, prestarlo como mutable es un bardo, necesitaria
             // un mutex por cada juego en el parque.
             // Meter la barrera adentro de un mutex no tiene sentido
-            self.salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
+            {
+                let mut salida_barrier = self.salida_barrier.write().expect("poison");
+                *salida_barrier = Barrier::new(gente_adentro + 1);
+            }
+            // self.salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
             for _persona in 0..*espacio_libre {
                 self.sem_juego_en_curso.release();
             }
 
-            self.salida_barrier.wait();
+            let salida_barrier = self.salida_barrier.read().expect("poison"); 
+            salida_barrier.wait();
             // let mut handles = vec![];
             // for _persona in 0..(*espacio_libre + 1) {
                 // let salida_barrier_c = Arc::clone(&self.salida_barrier);
@@ -148,7 +154,8 @@ impl Juego {
     }
 
     fn salir(&self) {
-        self.salida_barrier.wait();
+        let barrier = self.salida_barrier.read().expect("poisoned");
+        barrier.wait();
         // lockear el mutex de la salida para salir de a uno
         let _mutex = self.salida_mutex.lock().expect("poison");
     }
