@@ -29,7 +29,7 @@ pub fn parse_args() -> ParseArgsResult {
     let parsers = Args::parsers();
 
     for arg in std::env::args().skip(1) {
-        let val = arg.split("=").collect::<Vec<&str>>();
+        let val = arg.split('=').collect::<Vec<&str>>();
         if val[0] == "-h" || val[0] == "--help" {
             return ParseArgsResult::MostrarAyuda;
         } else if val[0] == "-d" || val[0] == "--debug" {
@@ -145,15 +145,15 @@ impl Args {
         // N:Pm:PM
 
         let mut resultado = vec![];
-        let partes: Vec<&str> = data.split(":").collect();
+        let partes: Vec<&str> = data.split(':').collect();
         
-        if partes.len() == 0 || partes.len() > 3 {
+        if partes.is_empty() || partes.len() > 3 {
             return Err("Formato inválido".into());
         }
         
         if partes.len() == 1 {
             // N,N,N,N
-            for parte in partes[0].split(",") {
+            for parte in partes[0].split(',') {
                 resultado.push(Self::parse_u32(parte)?);
             }
             return Ok(resultado);

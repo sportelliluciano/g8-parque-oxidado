@@ -40,9 +40,9 @@ fn real_main() -> Result<(), String> {
     };
 
     let logger = Arc::new(if args.debug {
-        Logger::to_file("debug.txt").expect("No se pudo crear el archivo de log.")
+        Logger::new_to_file("debug.txt").expect("No se pudo crear el archivo de log.")
     } else {
-        Logger::to_stdout()
+        Logger::new_to_stdout()
     });
 
     let log = TaggedLogger::new("ADMIN", logger.clone());

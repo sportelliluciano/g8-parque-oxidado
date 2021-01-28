@@ -6,7 +6,7 @@ use std::{
 use crate::{logger::{Logger, TaggedLogger}, parque::Parque};
 use crate::juego::Juego;
 
-pub fn iniciar_hilos_personas(logger: Arc<Logger>, parque: Arc<Parque>, presupuestos: &Vec<u32>) -> Vec<JoinHandle<()>> {
+pub fn iniciar_hilos_personas(logger: Arc<Logger>, parque: Arc<Parque>, presupuestos: &[u32]) -> Vec<JoinHandle<()>> {
     let mut handles = vec![];
     for (id, presupuesto_persona) in presupuestos.iter().enumerate() {
         let parque_child = parque.clone();

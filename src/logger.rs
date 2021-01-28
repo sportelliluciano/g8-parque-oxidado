@@ -11,11 +11,11 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn to_stdout() -> Self {
+    pub fn new_to_stdout() -> Self {
         Self { file: None, timer: Instant::now() }
     }
 
-    pub fn to_file(path: &str) -> Result<Self, String> {
+    pub fn new_to_file(path: &str) -> Result<Self, String> {
         Ok(Self {
             file: Some(Mutex::new(
                 File::create(path)

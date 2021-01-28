@@ -19,11 +19,11 @@ pub struct Juego {
     capacidad: usize,
 
     cant_espacio_libre: Mutex<usize>,
+    hay_espacio_mutex: Mutex<()>,
     cv_cero_espacio_libre: Condvar,
 
-    mutex_hay_espacio: Mutex<bool>,
     salida_barrier: Arc<Barrier>,
-    salida_mutex: Mutex<bool>,
+    salida_mutex: Mutex<()>,
 
     cerrar: AtomicBool,
     log: TaggedLogger,
@@ -40,11 +40,11 @@ impl Juego {
             capacidad,
 
             cant_espacio_libre: Mutex::new(capacidad),
+            hay_espacio_mutex: Mutex::new(()),
             cv_cero_espacio_libre: Condvar::new(),
 
-            mutex_hay_espacio: Mutex::new(true),
             salida_barrier: Arc::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
-            salida_mutex: Mutex::new(true),
+            salida_mutex: Mutex::new(()),
 
             cerrar: AtomicBool::new(false),
             log,
@@ -52,7 +52,7 @@ impl Juego {
     }
 
     pub fn thread_main(&self) {
-        while self.cerrar.load(Ordering::SeqCst) != true {
+        while !self.cerrar.load(Ordering::SeqCst) {
 
             // *** Esperar a que entre la gente ***
             self.log.write("Esperando a la gente");
@@ -106,7 +106,7 @@ impl Juego {
     }
 
     pub fn entrar(&self, persona: &mut Persona) {
-        let hay_espacio = self.mutex_hay_espacio.lock().expect("poisoned");
+        let hay_espacio = self.hay_espacio_mutex.lock().expect("poisoned");
         let mut espacio_libre = self.cant_espacio_libre.lock().expect("poison");
         *espacio_libre -= 1;
         if *espacio_libre == 0 {
@@ -134,7 +134,7 @@ impl Juego {
 
     fn salir(&self) {
         // lockear el mutex de la salida para salir de a uno
-        let _ = self.salida_mutex.lock().expect("poison");
+        let _mutex = self.salida_mutex.lock().expect("poison");
     }
 
     /// Cantidad de desperfectos que ocurrieron (el parque lo usa)
