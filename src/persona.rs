@@ -47,7 +47,7 @@ impl Persona {
 
     pub fn visitar_parque(&mut self, parque: Arc<Parque>) {
         self.log.write("Esperando para entrar al parque");
-        parque.permitir_ingresar_persona();
+        parque.ingresar_persona();
         self.log.write(&format!("Entre al parque con $ {}", self.presupuesto));
         while self.presupuesto > 0 {
             let juego = match parque.elegir_juego_random(self.presupuesto) {
@@ -58,7 +58,7 @@ impl Persona {
             self.jugar(juego);
         }
         self.log.write(&format!("No me alcanza para ningun juego (me quedaron $ {})", self.presupuesto));
-        parque.permitir_salir_persona();
+        parque.salir_persona();
         self.log.write("Me fui del parque");
     }
 
