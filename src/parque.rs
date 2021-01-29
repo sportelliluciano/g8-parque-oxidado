@@ -67,11 +67,11 @@ impl Parque {
         }
     }
 
-    pub fn permitir_ingresar_persona(&self) {
+    pub fn ingresar_persona(&self) {
         self.capacidad.acquire();
     }
 
-    pub fn permitir_salir_persona(&self) {
+    pub fn salir_persona(&self) {
         self.cantidad_visitantes.fetch_add(1, Ordering::SeqCst);
         self.capacidad.release();
     }
