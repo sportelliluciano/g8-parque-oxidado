@@ -58,8 +58,8 @@ impl Juego {
     }
 
     pub fn iniciar_funcionamiento(&self) {
+        let mut rng = rand::thread_rng();
         while !self.cerrar.load(Ordering::SeqCst) {
-            let mut rng = rand::thread_rng();
             let hubo_desperfecto: f64 = rng.gen();
             if hubo_desperfecto < PROBABILIDAD_DE_DESPERFECTOS {
                 // desperfecto generado
