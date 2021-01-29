@@ -58,9 +58,9 @@ fn real_main() -> Result<(), String> {
         .map(|(id, costo)| Juego::new(
             TaggedLogger::new(&format!("JUEGO {}", id), logger.clone()),
             id, 
-            Arc::clone(&parque), 
-            *costo
-        ))
+            Arc::clone(&parque),
+            *costo,
+            (args.semilla + 1 + id as u32) as u64))
         .collect::<Vec<Juego>>();
     
     // iniciar thread de juegos

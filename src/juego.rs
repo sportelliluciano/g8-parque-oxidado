@@ -1,18 +1,13 @@
-use std::{
-    sync::atomic::AtomicBool,
-    sync::atomic::Ordering,
-    sync::Condvar,
-    sync::Mutex,
-    sync::Barrier,
-    sync::Arc,
-    sync::RwLock,
-    time::Duration
-};
+use std::{sync::Arc, sync::Barrier, sync::Condvar, sync::Mutex, sync::RwLock, sync::atomic::AtomicBool, sync::atomic::{AtomicU32, Ordering}, time::Duration};
 use std::thread;
 
+use rand::{Rng, SeedableRng, prelude::StdRng};
 use std_semaphore::Semaphore;
 
 use crate::{logger::TaggedLogger, parque::Parque, persona::Persona};
+
+const PROBABILIDAD_DE_DESPERFECTOS: f64 = 0.05; // 5%
+const TIEMPO_MAXIMO_ARREGLO_DESPERFECTO: u64 = 25;
 
 pub struct Juego {
     pub id: usize,
@@ -32,10 +27,13 @@ pub struct Juego {
 
     cerrar: AtomicBool,
     log: TaggedLogger,
+
+    rng: Mutex<StdRng>,
+    cantidad_desperfectos: AtomicU32,
 }
 
 impl Juego {
-    pub fn new(log: TaggedLogger, id: usize, parque: Arc<Parque>, precio: u32) -> Self {
+    pub fn new(log: TaggedLogger, id: usize, parque: Arc<Parque>, precio: u32, semilla: u64) -> Self {
         let capacidad = 2; // TODO que sea parametro
         Self {
             id,
@@ -55,48 +53,67 @@ impl Juego {
 
             cerrar: AtomicBool::new(false),
             log,
+
+            rng: Mutex::new(StdRng::seed_from_u64(semilla)),
+            cantidad_desperfectos: AtomicU32::new(0),
         }
     }
 
     pub fn iniciar_funcionamiento(&self) {
+        // TODO refactorizar
+        let mut rng = self.rng.lock().expect("posioned rng");
         while !self.cerrar.load(Ordering::SeqCst) {
-            // Dar una vuelta del juego
+            let hubo_desperfecto: f64 = rng.gen();
+            if hubo_desperfecto < PROBABILIDAD_DE_DESPERFECTOS {
+                // desperfecto generado
+                self.log.write("Desperfecto generado");
+                self.cantidad_desperfectos.fetch_add(1, Ordering::SeqCst);
+                // simular tiempo de reparacion del desperfecto
+                thread::sleep(
+                    Duration::from_millis(
+                        rng.gen_range(0..TIEMPO_MAXIMO_ARREGLO_DESPERFECTO) as u64
+                    )
+                );
+                self.log.write("Desperfecto arreglado, iniciando una nueva vuelta");
+            } else {
+                // funcionamiento correcto, dar una vuelta del juego
 
-            // *** Esperar a que entre la gente ***
-            self.log.write("Esperando personas para iniciar la vuelta");
-            let (mut espacio_libre, timeout) =
-                self.cv_cero_espacio_libre.wait_timeout(
-                    self.cant_espacio_libre.lock().expect("poisoned"),
-                    Duration::from_secs(5)
-                ).expect("poisoned");
+                // *** Esperar a que entre la gente ***
+                self.log.write("Esperando personas para iniciar la vuelta");
+                let (mut espacio_libre, timeout) =
+                    self.cv_cero_espacio_libre.wait_timeout(
+                        self.cant_espacio_libre.lock().expect("poisoned"),
+                        Duration::from_secs(5)
+                    ).expect("poisoned");
 
-            if timeout.timed_out() {
-                // Timed out -> ver si hay gente y correr el juego.
-                if *espacio_libre == self.capacidad {
-                    self.log.write("Tiempo de espera de personas agotado sin ninguna persona lista para jugar, reiniciando espera de personas");
+                if timeout.timed_out() {
+                    // Timed out -> ver si hay gente y correr el juego.
+                    if *espacio_libre == self.capacidad {
+                        self.log.write("Tiempo de espera de personas agotado sin ninguna persona lista para jugar, reiniciando espera de personas");
+                        continue
+                    } else {
+                        self.log.write("Tiempo de espera de personas agotado con personas listas para jugar, iniciando vuelta");
+                    }
+                } else if *espacio_libre != 0 { // desbloqueo espurio de la condvar
                     continue
-                } else {
-                    self.log.write("Tiempo de espera de personas agotado con personas listas para jugar, iniciando vuelta");
                 }
-            } else if *espacio_libre != 0 { // desbloqueo espurio de la condvar
-                continue
+
+                let gente_adentro = self.capacidad - *espacio_libre;
+                self.log.write(
+                &format!(
+                        "Arrancando la vuelta del juego con {}/{} personas",
+                        gente_adentro, self.capacidad
+                    )
+                );
+
+                // *** Arrancar el juego ***
+                thread::sleep(Duration::from_millis(self.tiempo as u64));
+
+                self.terminar_vuelta(gente_adentro);
+
+                // Marcar todo el espacio como libre para que puedan entrar nuevas personas al juego en la siguiente vuelta
+                *espacio_libre = self.capacidad;
             }
-
-            let gente_adentro = self.capacidad - *espacio_libre;
-            self.log.write(
-            &format!(
-                    "Arrancando la vuelta del juego con {}/{} personas",
-                    gente_adentro, self.capacidad
-                )
-            );
-
-            // *** Arrancar el juego ***
-            thread::sleep(Duration::from_millis(self.tiempo as u64));
-
-            self.terminar_vuelta(gente_adentro);
-
-            // Marcar todo el espacio como libre para que puedan entrar nuevas personas al juego en la siguiente vuelta
-            *espacio_libre = self.capacidad;
         }
 
         self.log.write("Cerrado");
@@ -116,7 +133,7 @@ impl Juego {
         self.log.write("Esperando que las personas salgan del juego");
         let salida_barrier = self.salida_barrier.read().expect("poison");
         salida_barrier.wait();
-        self.log.write("Todas las personas salienron del juego, iniciando una nueva vuelta");
+        self.log.write("Todas las personas salieron del juego, iniciando una nueva vuelta");
     }
 
     pub fn agregar_a_la_fila(&self, persona: &mut Persona) {
@@ -158,7 +175,7 @@ impl Juego {
 
     /// Cantidad de desperfectos que ocurrieron (el parque lo usa)
     pub fn obtener_desperfectos(&self) -> u32 {
-        0
+        self.cantidad_desperfectos.load(Ordering::SeqCst)
     }
 
     /// EL PARQUE LE INDICA AL JUEGO QUE DEBE CERRARSE CUANDO SE FUE TODA LA GENTE
