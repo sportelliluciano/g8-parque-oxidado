@@ -264,6 +264,22 @@ mod tests {
         assert!(!parque.elegir_juego_random(10).is_ok());
     }
 
+    #[test]
+    fn guardar_dinero_aumenta_la_caja() {
+        let parque = crear_parque(2);
+        parque.guardar_dinero(5);
+        assert_eq!(parque.obtener_caja(), 5);
+    }
+
+    #[test]
+    fn al_salir_persona_aumenta_la_cantidad_visitantes() {
+        let parque = crear_parque(2);
+        assert_eq!(parque.obtener_cantidad_gente_que_salio_del_parque(), 0);
+        parque.ingresar_persona();
+        parque.salir_persona();
+        assert_eq!(parque.obtener_cantidad_gente_que_salio_del_parque(), 1);
+    }
+
     fn crear_parque(capacidad: usize) -> Parque {
         crear_parque_con_semilla(capacidad, 2)
     }
