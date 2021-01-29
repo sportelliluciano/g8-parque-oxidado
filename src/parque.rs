@@ -225,6 +225,45 @@ mod tests {
         assert_eq!(parque.obtener_juegos_posibles(25).len(), 5);
     }
 
+    #[test]
+    fn elegir_juego_random_devuelve_uno_de_los_posibles() {
+        let parque = Arc::new(crear_parque(2));
+        let vec: Vec<u32> = (0..10).collect();
+        let juegos = vec.iter()
+            .map(|id| crear_juego(
+                *id as usize,
+                Arc::clone(&parque),
+                20,
+                2,
+                25
+            ))
+            .collect::<Vec<Juego>>();
+        parque.registrar_juegos(juegos);
+        let juego_random = parque.elegir_juego_random(30).unwrap();
+        assert!(
+            parque.juegos.lock().expect("poisoned").iter().any(
+                |juego| juego.id == juego_random.id
+            )
+        );
+    }
+
+    #[test]
+    fn elegir_juego_random_da_error_si_no_hay_ninguno_posible() {
+        let parque = Arc::new(crear_parque(2));
+        let vec: Vec<u32> = (0..10).collect();
+        let juegos = vec.iter()
+            .map(|id| crear_juego(
+                *id as usize,
+                Arc::clone(&parque),
+                20,
+                2,
+                25
+            ))
+            .collect::<Vec<Juego>>();
+        parque.registrar_juegos(juegos);
+        assert!(!parque.elegir_juego_random(10).is_ok());
+    }
+
     fn crear_parque(capacidad: usize) -> Parque {
         crear_parque_con_semilla(capacidad, 2)
     }
