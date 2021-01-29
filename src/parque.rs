@@ -17,7 +17,6 @@ pub struct Parque {
     caja: Arc<AtomicU32>,
     capacidad: Semaphore,
     cantidad_visitantes: AtomicUsize,
-    gente_adentro: AtomicU32,
     rng: Mutex<StdRng>,
     log: TaggedLogger
 }
@@ -28,7 +27,6 @@ impl Parque {
             caja: Arc::new(AtomicU32::new(0)), 
             capacidad: Semaphore::new(capacidad as isize),
             cantidad_visitantes: AtomicUsize::new(0),
-            gente_adentro: AtomicU32::new(0),
             juegos: Mutex::new(vec![]),
             juegos_threads: Mutex::new(vec![]),
             rng: Mutex::new(StdRng::seed_from_u64(semilla)),
@@ -43,13 +41,9 @@ impl Parque {
             let juego_ref = Arc::new(juego);
             juegos_vec.push(juego_ref.clone());
             juegos_threads_vec.push(std::thread::spawn(move || {
-                juego_ref.thread_main();
+                juego_ref.iniciar_funcionamiento();
             }));
         }
-    }
-
-    pub fn guardar_dinero(&self, monto: u32) {
-        self.caja.fetch_add(monto, Ordering::SeqCst);
     }
 
     fn obtener_juegos_posibles(&self, presupuesto_maximo: u32) -> Vec<Arc<Juego>> {
@@ -67,37 +61,26 @@ impl Parque {
         let juegos_posibles = self.obtener_juegos_posibles(presupuesto_maximo);
         if juegos_posibles.is_empty() {
             Err("No alcanza el dinero")
-        } else {   
+        } else {
             let mut rng = self.rng.lock().expect("posioned rng");
             Ok(juegos_posibles[rng.gen_range(0..juegos_posibles.len())].clone())
         }
     }
 
-    /// TODO: Chequear race condition / inconsistencia????
     pub fn ingresar_persona(&self) {
         self.capacidad.acquire();
-        self.gente_adentro.fetch_add(1, Ordering::SeqCst);
     }
 
-    /// TODO: Chequear race condition / inconsistencia????
     pub fn salir_persona(&self) {
         self.cantidad_visitantes.fetch_add(1, Ordering::SeqCst);
         self.capacidad.release();
-        self.gente_adentro.fetch_sub(1, Ordering::SeqCst);
     }
 
     pub fn obtener_cantidad_gente_que_salio_del_parque(&self) -> usize {
-        // Originalmente esto era while hay_gente_adentro() { ... }
-        // Pero eso llevaba a una race condition donde el parque se cerraba
-        // antes de que entre la primer persona...
-        // Solución fea: en lugar de ver cuanta gente hay adentro, contar
-        // cuanta gente salió del parque (y revisar que todos los que tenían
-        // que entrar hayan salido).
+        // En lugar de ver cuanta gente hay adentro, contar
+        // cuanta gente salió del parque y revisar que todos los que tenían
+        // que entrar hayan salido.
         self.cantidad_visitantes.load(Ordering::SeqCst)
-    }
-
-    pub fn obtener_genete_adentro(&self) -> u32 {
-        self.gente_adentro.load(Ordering::SeqCst)
     }
 
     pub fn cerrar(&self) {
@@ -111,6 +94,10 @@ impl Parque {
             juego_thread.join().expect("cannot join thread");
         }
         self.log.write("Parque cerrado");
+    }
+
+    pub fn guardar_dinero(&self, monto: u32) {
+        self.caja.fetch_add(monto, Ordering::SeqCst);
     }
 
     pub fn obtener_caja(&self) -> u32 {

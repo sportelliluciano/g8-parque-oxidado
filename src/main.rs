@@ -52,6 +52,7 @@ fn real_main() -> Result<(), String> {
         args.capacidad_parque as usize,
         args.semilla as u64
     ));
+    let semilla = args.semilla;
     let juegos = args.costo_juegos.unwrap()
         .iter()
         .zip(args.capacidad_juegos.unwrap())
@@ -63,7 +64,8 @@ fn real_main() -> Result<(), String> {
             Arc::clone(&parque), 
             *costo,
             capacidad,
-            duracion_ms
+            duracion_ms,
+            (semilla + 1 + id as u32) as u64
         ))
         .collect::<Vec<Juego>>();
     
@@ -78,17 +80,16 @@ fn real_main() -> Result<(), String> {
     
     while parque.obtener_cantidad_gente_que_salio_del_parque() < args.presupuesto_personas.len() {
         sleep(Duration::from_millis(5000));
-        log.write(&format!("Caja: $ {}, desperfectos: {}, gente adentro: {}", 
+        log.write(&format!("Caja: $ {}, desperfectos: {}",
                  parque.obtener_caja(), 
-                 parque.obtener_desperfectos(),
-                 parque.obtener_genete_adentro()));
+                 parque.obtener_desperfectos()));
     }
     
     log.write("Salieron todos, cerrando el parque");
     parque.cerrar();
     log.write("Terminado");
 
-    log.write(&format!("Caja final: $ {}, desperfectos: {}", 
+    log.write(&format!("Caja final: $ {}, desperfectos: {}",
                  parque.obtener_caja(), 
                  parque.obtener_desperfectos()));
 

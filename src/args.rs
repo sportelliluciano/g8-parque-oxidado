@@ -133,7 +133,7 @@ impl Args {
         result + &format!(" --semilla={} {}", self.semilla, debug)
     }
 
-    fn stringify_array(nombre: &str, array: &Vec<u32>) -> String {
+    fn stringify_array(nombre: &str, array: &[u32]) -> String {
         format!("{}={}", nombre, 
             array
                 .iter()
@@ -325,7 +325,7 @@ impl Args {
         Ok(())
     }
 
-    fn igualar_arrays(base: &Vec<u32>, dest: &mut Option<Vec<u32>>, defval: u32, nombre_base: &str, nombre_dest: &str) -> Result<Vec<u32>, String> {
+    fn igualar_arrays(base: &[u32], dest: &mut Option<Vec<u32>>, defval: u32, nombre_base: &str, nombre_dest: &str) -> Result<Vec<u32>, String> {
         if let Some(d) = dest.take() {
             if base.len() != d.len() {
                 return Err(format!(
