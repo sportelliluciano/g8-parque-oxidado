@@ -1,7 +1,7 @@
 use std::{sync::Arc, sync::Barrier, sync::Condvar, sync::Mutex, sync::RwLock, sync::atomic::AtomicBool, sync::atomic::{AtomicU32, Ordering}, time::Duration};
 use std::thread;
 
-use rand::Rng;
+use rand::{Rng, SeedableRng, prelude::StdRng};
 use std_semaphore::Semaphore;
 
 use crate::{logger::TaggedLogger, parque::Parque, persona::Persona};
@@ -28,11 +28,12 @@ pub struct Juego {
     cerrar: AtomicBool,
     log: TaggedLogger,
 
+    rng: Mutex<StdRng>,
     cantidad_desperfectos: AtomicU32,
 }
 
 impl Juego {
-    pub fn new(log: TaggedLogger, id: usize, parque: Arc<Parque>, precio: u32) -> Self {
+    pub fn new(log: TaggedLogger, id: usize, parque: Arc<Parque>, precio: u32, semilla: u64) -> Self {
         let capacidad = 2; // TODO que sea parametro
         Self {
             id,
@@ -53,12 +54,14 @@ impl Juego {
             cerrar: AtomicBool::new(false),
             log,
 
+            rng: Mutex::new(StdRng::seed_from_u64(semilla)),
             cantidad_desperfectos: AtomicU32::new(0),
         }
     }
 
     pub fn iniciar_funcionamiento(&self) {
-        let mut rng = rand::thread_rng();
+        // TODO refactorizar
+        let mut rng = self.rng.lock().expect("posioned rng");
         while !self.cerrar.load(Ordering::SeqCst) {
             let hubo_desperfecto: f64 = rng.gen();
             if hubo_desperfecto < PROBABILIDAD_DE_DESPERFECTOS {
