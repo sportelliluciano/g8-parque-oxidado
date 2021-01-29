@@ -33,9 +33,9 @@ pub struct Juego {
 }
 
 impl Juego {
-    pub fn new(log: TaggedLogger, 
-               id: usize, 
-               parque: Arc<Parque>, 
+    pub fn new(log: TaggedLogger,
+               id: usize,
+               parque: Arc<Parque>,
                precio: u32,
                capacidad: u32,
                duracion_ms: u32,

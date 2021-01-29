@@ -9,7 +9,7 @@ use std::{
 use rand::{Rng, SeedableRng, prelude::StdRng};
 use std_semaphore::Semaphore;
 
-use crate::{juego::Juego, logger::{Logger, TaggedLogger}};
+use crate::{juego::Juego, logger::{TaggedLogger}};
 
 pub struct Parque {
     juegos: Mutex<Vec<Arc<Juego>>>,
@@ -118,6 +118,8 @@ impl Parque {
 
 #[cfg(test)]
 mod tests {
+    use crate::logger::Logger;
+
     use super::*;
 
     #[test]
@@ -126,13 +128,126 @@ mod tests {
         assert_eq!(parque.obtener_caja(), 0);
     }
 
+    #[test]
+    fn desperfectos_inicial_es_cero() {
+        let parque = crear_parque(2);
+        assert_eq!(parque.obtener_desperfectos(), 0);
+    }
+
+    #[test]
+    fn juegos_inicial_es_vacio() {
+        let parque = crear_parque(2);
+        assert!(parque.juegos.lock().expect("poisoned").is_empty());
+    }
+
+    #[test]
+    fn registrar_juegos_guarda_los_juegos() {
+        let parque = Arc::new(crear_parque(2));
+        let vec: Vec<u32> = (0..10).collect();
+        let juegos = vec.iter()
+            .map(|id| crear_juego(
+                *id as usize,
+                Arc::clone(&parque),
+                20,
+                2,
+                25
+            ))
+            .collect::<Vec<Juego>>();
+        parque.registrar_juegos(juegos);
+        assert_eq!(parque.juegos.lock().expect("poisoned").len(), 10);
+    }
+
+    #[test]
+    fn obtener_juegos_posibles_cuando_no_hay_juegos() {
+        let parque = Arc::new(crear_parque(2));
+        assert!(parque.obtener_juegos_posibles(2).is_empty());
+    }
+
+    #[test]
+    fn obtener_juegos_posibles_cuando_todos_son_posibles() {
+        let parque = Arc::new(crear_parque(2));
+        let vec: Vec<u32> = (0..10).collect();
+        let juegos = vec.iter()
+            .map(|id| crear_juego(
+                *id as usize,
+                Arc::clone(&parque),
+                20,
+                2,
+                25
+            ))
+            .collect::<Vec<Juego>>();
+        parque.registrar_juegos(juegos);
+        assert_eq!(parque.obtener_juegos_posibles(30).len(), 10);
+    }
+
+    #[test]
+    fn obtener_juegos_posibles_cuando_ninguno_es_posible() {
+        let parque = Arc::new(crear_parque(2));
+        let vec: Vec<u32> = (0..10).collect();
+        let juegos = vec.iter()
+            .map(|id| crear_juego(
+                *id as usize,
+                Arc::clone(&parque),
+                20,
+                2,
+                25
+            ))
+            .collect::<Vec<Juego>>();
+        parque.registrar_juegos(juegos);
+        assert_eq!(parque.obtener_juegos_posibles(10).len(), 0);
+    }
+
+    #[test]
+    fn obtener_juegos_posibles_cuando_algunos_son_posibles() {
+        let parque = Arc::new(crear_parque(2));
+        let vec1: Vec<u32> = (0..5).collect();
+        let juegos1 = vec1.iter()
+            .map(|id| crear_juego(
+                *id as usize,
+                Arc::clone(&parque),
+                20,
+                2,
+                25
+            ))
+            .collect::<Vec<Juego>>();
+        parque.registrar_juegos(juegos1);
+        let vec2: Vec<u32> = (0..5).collect();
+        let juegos2 = vec2.iter()
+            .map(|id| crear_juego(
+                *id as usize,
+                Arc::clone(&parque),
+                30,
+                2,
+                25
+            ))
+            .collect::<Vec<Juego>>();
+        parque.registrar_juegos(juegos2);
+        assert_eq!(parque.obtener_juegos_posibles(25).len(), 5);
+    }
+
     fn crear_parque(capacidad: usize) -> Parque {
         crear_parque_con_semilla(capacidad, 2)
     }
 
     fn crear_parque_con_semilla(capacidad: usize, semilla: u64) -> Parque {
         Parque::new(
-            TaggedLogger::new("ADMIN", Arc::new(Logger::new_to_stdout())), capacidad, semilla
+            crear_logger(), capacidad, semilla
+        )
+    }
+
+    fn crear_logger() -> TaggedLogger {
+        TaggedLogger::new("ADMIN", Arc::new(Logger::new_to_stdout()))
+    }
+
+    fn crear_juego(id: usize, parque: Arc<Parque>, precio: u32, capacidad: u32, duracion_ms: u32) -> Juego {
+        Juego::new(
+            crear_logger(),
+            id,
+            Arc::clone(&parque),
+            precio,
+            capacidad,
+            duracion_ms,
+            3 // TODO que no todos tengan la misma
         )
     }
 }
