@@ -9,7 +9,7 @@ use std::{
 use rand::{Rng, SeedableRng, prelude::StdRng};
 use std_semaphore::Semaphore;
 
-use crate::{juego::Juego, logger::TaggedLogger};
+use crate::{juego::Juego, logger::{Logger, TaggedLogger}};
 
 pub struct Parque {
     juegos: Mutex<Vec<Arc<Juego>>>,
@@ -68,6 +68,7 @@ impl Parque {
     }
 
     pub fn ingresar_persona(&self) {
+        // TODO la consigna dice Los visitantes van llegando de a uno, es suficiente el semaforo?
         self.capacidad.acquire();
     }
 
@@ -111,5 +112,27 @@ impl Parque {
         }
 
         cantidad
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn caja_inicial_es_cero() {
+        let parque = crear_parque(2);
+        assert_eq!(parque.obtener_caja(), 0);
+    }
+
+    fn crear_parque(capacidad: usize) -> Parque {
+        crear_parque_con_semilla(capacidad, 2)
+    }
+
+    fn crear_parque_con_semilla(capacidad: usize, semilla: u64) -> Parque {
+        Parque::new(
+            TaggedLogger::new("ADMIN", Arc::new(Logger::new_to_stdout())), capacidad, semilla
+        )
     }
 }

@@ -1,3 +1,4 @@
 - Pruebas unitarias
 - Sacar inicio de threads de los juegos del parque (pasarlos a main).
 - Mejorar comentarios para poder hacer la doc con "cargo doc"
+- TODO en codigo
