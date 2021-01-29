@@ -16,9 +16,9 @@ pub struct Juego {
     parque: Arc<Parque>,
     pub precio: u32,
     tiempo: u32,
-    capacidad: usize,
+    capacidad: u32,
 
-    cant_espacio_libre: Mutex<usize>,
+    cant_espacio_libre: Mutex<u32>,
     hay_espacio_mutex: Mutex<()>,
     cv_cero_espacio_libre: Condvar,
 
@@ -30,20 +30,24 @@ pub struct Juego {
 }
 
 impl Juego {
-    pub fn new(log: TaggedLogger, id: usize, parque: Arc<Parque>, precio: u32) -> Self {
-        let capacidad = 2; // TODO que sea parametro
+    pub fn new(log: TaggedLogger, 
+               id: usize, 
+               parque: Arc<Parque>, 
+               precio: u32,
+               capacidad: u32,
+               duracion_ms: u32) -> Self {
         Self {
             id,
             parque,
             precio,
-            tiempo: 25, // TODO que sea parametro
+            tiempo: duracion_ms,
             capacidad,
 
             cant_espacio_libre: Mutex::new(capacidad),
             hay_espacio_mutex: Mutex::new(()),
             cv_cero_espacio_libre: Condvar::new(),
 
-            salida_barrier: Arc::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
+            salida_barrier: Arc::new(Barrier::new(capacidad as usize + 1)), // +1 para esperar el del juego
             salida_mutex: Mutex::new(()),
 
             cerrar: AtomicBool::new(false),

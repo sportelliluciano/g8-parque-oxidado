@@ -52,14 +52,18 @@ fn real_main() -> Result<(), String> {
         args.capacidad_parque as usize,
         args.semilla as u64
     ));
-    let juegos = args.costo_juegos
+    let juegos = args.costo_juegos.unwrap()
         .iter()
+        .zip(args.capacidad_juegos.unwrap())
+        .zip(args.duracion_juegos.unwrap())
         .enumerate()
-        .map(|(id, costo)| Juego::new(
+        .map(|(id, ((costo, capacidad), duracion_ms))| Juego::new(
             TaggedLogger::new(&format!("JUEGO {}", id), logger.clone()),
             id, 
             Arc::clone(&parque), 
-            *costo
+            *costo,
+            capacidad,
+            duracion_ms
         ))
         .collect::<Vec<Juego>>();
     
