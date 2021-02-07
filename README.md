@@ -4,20 +4,26 @@
 ## Uso:
 
 ```bash
-$ ./parque-oxidado [--personas=<PERSONAS>] [--juegos=<JUEGOS>] [--capacidad=<N>] [-h|--help] [--semilla=<N>] [-d|--debug]
+$ ./parque-oxidado [--personas=<LISTA>] [--costo-juegos=<LISTA>] [--capacidad-juegos=<LISTA>] [--duracion-juegos=<LISTA>] [--capacidad=<N>] [-h|--help] [--semilla=<N>] [-d|--debug]
 ```
 
-### Configurar la cantidad de personas
-Para definir la cantidad de personas que ingresarán al parque y sus presupuestos iniciales se debe utilizar el parámetro `--personas=<PERSONAS>`. Si el mismo no
+### Configuración del simulador
+El simulador permite configurar distintas variables de simulación, tales como la cantidad de personas que ingresarán al parque, la capacidad del parque, el costo, duración y capacidad de los juegos, más algunas opciones misceláneas.
+
+Existen tres tipos de parámetros de línea de comandos posibles:
+ - `--opcion=<N>`: Opción que acepta un número natural, por ejemplo, `--opcion=23`.
+ - `--opcion=<LISTA>`: Opción que acepta una lista de números naturales.
+ - `--opcion`: Opción que no acepta valores, su presencia activa una bandera.
+
+Para el caso de las listas de valores hay tres formas de expresarlas:
+ - Indicando explícitamente cada valor. Por ejemplo, `--opcion=1,2,3,4`.
+ - Indicando una cantidad de elementos y un valor, `N:V`. Por ejemplo `--opcion=5:10` es equivalente a `--opcion=10,10,10,10,10`.
+ - Indicando la cantidad de elementos y un rango para generar valores aleatorios, `N:min:max` para generar N elementos en el rango `[min, max)`.
+
+#### Configurar las personas
+Para definir la cantidad de personas que ingresarán al parque y sus presupuestos iniciales se debe utilizar el parámetro `--personas=<LISTA>`. Si el mismo no
 se especifica se iniciará la simulación con la cantidad de personas y presupuesto
 inicial por defecto: 5 personas con $ 40 cada una.
-
-Existen tres formas de especificar las personas que ingresarán al parque:
- - Indicando explícitamente los presupuestos iniciales de cada persona, `n1,n2,n3,...`.
- - Indicando la cantidad de personas que ingresarán y un presupuesto inicial
-   común a todas las personas, `N:P`.
- - Indicando la cantidad de personas que ingresarán y un rango para generar
-   presupuestos aleatorios, `N:Pmin:Pmax`.
 
 Ejemplos:
 
@@ -27,30 +33,23 @@ Ejemplos:
 
 `--personas=5:10:20`: Ingresarán 5 personas con presupuestos iniciales aleatorios uniformemente distribuidos entre $ 10 y $ 20.
 
-### Configurar la cantidad de juegos
-Para definir la cantidad de juegos y el costo de cada juego se utiliza el parámetro
-`--juegos=<JUEGOS>`. Si el mismo no se especifica se utilizará el valor por defecto
-de 5 juegos de $ 10 cada uno.
+#### Configurar los juegos
+Los juegos del parque tienen tres variables configurables: el precio de la entrada, la cantidad de personas que pueden subirse como máximo a un juego en una vuelta del mismo; y la duración de la vuelta.
 
-Al igual que con las personas, hay 3 formas de definir los juegos:
- - Indicando explícitamente el costo de cada juego, `j1,j2,j3`.
- - Indicando la cantidad de juegos y un costo común a todos los juegos, `N:P`.
- - Indicando la cantidad de juegos y un rango para generar costos aleatorios, `N:Pmin:Pmax`.
+Estos parámetros se pueden configurar con las siguientes opciones
+- `--costo-juegos=<LISTA>`: Precio de la entrada de cada juego. Si no se especifica se utilizará el costo por defecto para todos los juegos de $ 10.
+- `--capacidad-juegos=<LISTA>`: Cantidad de personas que pueden subirse como máximo por vuelta. Si no se especifica se utilizará la capacidad por defecto de dos personas por vuelta para todos los juegos.
+- `--duracion-juegos=<LISTA>`: Duración de la vuelta de cada juego, en milisegundos. Si no se especifica se utilizará el valor por defecto para todos los juegos de 25ms.
 
-Ejemplos:
+Cabe destacar que si se especifican dos o más parámetros de configuración de juegos, **todos** deberán tener la misma cantidad de elementos; de lo contrario se producirá
+un error.
 
-`--juegos=5,18,10,25`: Habrá 4 juegos con costos de $ 5, $ 18, $ 10 y $ 25, respectivamente.
-
-`--juegos=5:40`: Habrá 5 juegos, todos con costo de $ 40 (notar `:` en lugar de `,`).
-
-`--juegos=5:10:20`: Habrá 5 juegos con costos aleatorios uniformemente distribuidos entre $ 10 y $ 20.
-
-### Configurar la capacidad del parque
+#### Configurar la capacidad del parque
 Para definir la cantidad de personas que pueden estar simultáneamente dentro del parque en un momento específico se debe usar el parámetro `--capacidad`. Si no se
 especifica el valor por defecto será de 10 personas. El valor de este parámetro deberá ser un número natural.
 
-### Modo debug
+#### Modo debug
 El simulador mostrará por defecto el estado de la simulación por la salida estándar. Opcionalmente se puede activar la opción `--debug` para guardar este registro a un archivo.
 
-### Semilla aleatoria
+#### Semilla aleatoria
 Para definir una semilla aleatoria específica se puede utilizar el parámetro `--semilla=<N>`.

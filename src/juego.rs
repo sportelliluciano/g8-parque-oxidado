@@ -14,9 +14,9 @@ pub struct Juego {
     parque: Arc<Parque>,
     pub precio: u32,
     tiempo: u32,
-    capacidad: usize,
+    capacidad: u32,
 
-    cant_espacio_libre: Mutex<usize>,
+    cant_espacio_libre: Mutex<u32>,
     hay_espacio_mutex: Mutex<()>,
     cv_cero_espacio_libre: Condvar,
 
@@ -33,13 +33,18 @@ pub struct Juego {
 }
 
 impl Juego {
-    pub fn new(log: TaggedLogger, id: usize, parque: Arc<Parque>, precio: u32, semilla: u64) -> Self {
-        let capacidad = 2; // TODO que sea parametro
+    pub fn new(log: TaggedLogger, 
+               id: usize, 
+               parque: Arc<Parque>, 
+               precio: u32,
+               capacidad: u32,
+               duracion_ms: u32,
+               semilla: u64) -> Self {
         Self {
             id,
             parque,
             precio,
-            tiempo: 25, // TODO que sea parametro
+            tiempo: duracion_ms,
             capacidad,
 
             cant_espacio_libre: Mutex::new(capacidad),
@@ -48,7 +53,7 @@ impl Juego {
 
             sem_juego_en_curso: Semaphore::new(0),
 
-            salida_barrier: RwLock::new(Barrier::new(capacidad + 1)), // +1 para esperar el del juego
+            salida_barrier: RwLock::new(Barrier::new(capacidad as usize + 1)), // +1 para esperar el del juego
             salida_mutex: Mutex::new(()),
 
             cerrar: AtomicBool::new(false),
@@ -119,11 +124,11 @@ impl Juego {
         self.log.write("Cerrado");
     }
 
-    fn terminar_vuelta(&self, gente_adentro: usize) {
+    fn terminar_vuelta(&self, gente_adentro: u32) {
         // setear la cantidad de personas a esperar que usen la salida previo a avisar que dejen sus lugares
         {
             let mut salida_barrier = self.salida_barrier.write().expect("poison");
-            *salida_barrier = Barrier::new(gente_adentro + 1); // +1 para esperar el del juego
+            *salida_barrier = Barrier::new(gente_adentro as usize + 1); // +1 para esperar el del juego
         }
         self.log.write("Vuelta terminada, esperando que las personas dejen sus lugares");
         // avisar que el juego terminó
