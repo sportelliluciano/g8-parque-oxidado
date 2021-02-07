@@ -25,7 +25,7 @@ pub struct Juego {
     salida_barrier: RwLock<Barrier>,
     salida_mutex: Mutex<()>,
 
-    cerrar: AtomicBool,
+    cerrado: AtomicBool,
     log: TaggedLogger,
 
     rng: Mutex<StdRng>,
@@ -33,9 +33,9 @@ pub struct Juego {
 }
 
 impl Juego {
-    pub fn new(log: TaggedLogger, 
-               id: usize, 
-               parque: Arc<Parque>, 
+    pub fn new(log: TaggedLogger,
+               id: usize,
+               parque: Arc<Parque>,
                precio: u32,
                capacidad: u32,
                duracion_ms: u32,
@@ -56,7 +56,7 @@ impl Juego {
             salida_barrier: RwLock::new(Barrier::new(capacidad as usize + 1)), // +1 para esperar el del juego
             salida_mutex: Mutex::new(()),
 
-            cerrar: AtomicBool::new(false),
+            cerrado: AtomicBool::new(false),
             log,
 
             rng: Mutex::new(StdRng::seed_from_u64(semilla)),
@@ -67,7 +67,7 @@ impl Juego {
     pub fn iniciar_funcionamiento(&self) {
         // TODO refactorizar
         let mut rng = self.rng.lock().expect("posioned rng");
-        while !self.cerrar.load(Ordering::SeqCst) {
+        while !self.cerrado.load(Ordering::SeqCst) {
             let hubo_desperfecto: f64 = rng.gen();
             if hubo_desperfecto < PROBABILIDAD_DE_DESPERFECTOS {
                 // desperfecto generado
@@ -185,6 +185,6 @@ impl Juego {
 
     /// EL PARQUE LE INDICA AL JUEGO QUE DEBE CERRARSE CUANDO SE FUE TODA LA GENTE
     pub fn cerrar(&self) {
-        self.cerrar.store(true, Ordering::SeqCst);
+        self.cerrado.store(true, Ordering::SeqCst);
     }
 }
