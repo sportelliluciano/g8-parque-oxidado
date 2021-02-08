@@ -76,24 +76,28 @@ pub fn parse_args() -> ParseArgsResult {
 
 pub fn mostrar_ayuda() {
     let args: Vec<String> = std::env::args().collect();
-    println!("Uso: {} [--personas=<PERSONAS>] [--juegos=<JUEGOS>] [--capacidad=N] [-h|--help]",
-        args[0]);
-    println!("\t --personas=<PERSONAS>: Cantidad de personas que ingresarán al parque");
-    println!("\t y presupuesto inicial de las mismas");
-    println!("\t --personas=n1,n2,n3,...,nk: Ingresarán k personas con presupuestos iniciales n1, n2, n3, ..., nk");
-    println!("\t --personas=N:P: Ingresarán N personas, todas con presupuesto inicial P.");
-    println!("\t --personas=N:Pm:PM: Ingresarán N personas con presupuestos iniciales aleatorios en el rango [Pm,PM)");
-    println!();
-    println!("\t --juegos=<JUEGOS>: Cantidad de juegos que habrá en el parque y costo de los mismos");
-    println!("\t --juegos=c1,c2,c3,...,ck: Habrá k juegos con costos c1, c2, c3, ..., ck");
-    println!("\t --juegos=N:C: Habrá N juegos, todos con costo C.");
-    println!("\t --juegos=N:Cm:CM: Habrá N juegos con costos aleatorios en el rango [Cm,CM)");
-    println!();
-    println!("\t --capacidad=N: Cantidad de personas que puede haber simultáneamente");
-    println!("\t dentro del parque en un momento dado.");
-    println!("\t -d|--debug: Habilitar registro a un archivo.");
-    println!("\t -h|--help: Muestra esta ayuda.");
-    println!("\t --semilla=N: Semilla aleatoria a utilizar.");
+    eprint!("Uso: {} [--personas=<LISTA>] ", args[0]);
+    eprint!("[--costo-juegos=<LISTA>] [--capacidad-juegos=<LISTA>] [--duracion-juegos=<LISTA>] ");
+    eprintln!("[--capacidad=<N>] [-h|--help] [--semilla=<N>] [-d|--debug]\n");
+    
+    eprintln!("TIPOS DE OPCIONES: ");
+    eprintln!("\t--opcion=<N>: Opción que acepta un número natural, por ejemplo, --opcion=23.");
+    eprintln!("\t--opcion=<LISTA>: Opción que acepta una lista de números naturales.");
+    eprintln!("\t--opcion: Opción que no acepta valores, su presencia activa una bandera.\n");
+
+    eprintln!("OPCIONES: ");
+    eprintln!("\t --personas=<LISTA>: Presupuesto de cada pesona que ingresará al parque.\n");
+    
+    eprintln!("\t --costo-juegos=<LISTA>: Costo de cada juego del parque.");
+    eprintln!("\t --capacidad-juegos=<LISTA>: Capacidad de cada juego del parque.");
+    eprintln!("\t --duracion-juegos=<LISTA>: Duración de cada juego del parque.\n");
+    
+    eprintln!("\t --capacidad=N: Capacidad total de personas que puede haber dentro del parque.");
+    eprintln!("\t --semilla=N: Semilla aleatoria a utilizar.");
+    eprintln!("\t -d|--debug: Habilitar registro a un archivo.");
+    eprintln!("\t -h|--help: Muestra esta ayuda.\n");
+
+    eprintln!("Para más información ver README.md");
 }
 
 impl Args {
