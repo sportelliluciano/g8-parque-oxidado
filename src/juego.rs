@@ -65,7 +65,6 @@ impl Juego {
     }
 
     pub fn iniciar_funcionamiento(&self) {
-        // TODO refactorizar
         let mut rng = self.rng.lock().expect("posioned rng");
         while !self.cerrado.load(Ordering::SeqCst) {
             let hubo_desperfecto: f64 = rng.gen();
@@ -142,9 +141,6 @@ impl Juego {
     }
 
     pub fn agregar_a_la_fila(&self, persona: &mut Persona) {
-        // TODO cobrar la entrada acá?
-        // la consigna dice Cuando la persona llega a la puerta del juego elegido, debe abonar la entrada
-        // cuestionable si la "fila" esta es la entrada o no
         let hay_espacio = self.hay_espacio_mutex.lock().expect("poisoned");
         let mut espacio_libre = self.cant_espacio_libre.lock().expect("poison");
         *espacio_libre -= 1;

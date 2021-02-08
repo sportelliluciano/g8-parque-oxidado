@@ -68,7 +68,6 @@ impl Parque {
     }
 
     pub fn ingresar_persona(&self) {
-        // TODO la consigna dice Los visitantes van llegando de a uno, es suficiente el semaforo?
         self.capacidad.acquire();
     }
 
@@ -302,7 +301,7 @@ mod tests {
             precio,
             capacidad,
             duracion_ms,
-            3 // TODO que no todos tengan la misma
+            id as u64
         )
     }
 }
